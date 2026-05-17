@@ -7,8 +7,10 @@ indirectly via the KV state it reads/writes.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
+
+NINE_AM = time(9, 0)
 
 from sqlalchemy import select
 
@@ -28,34 +30,34 @@ def _local(year: int, month: int, day: int, hour: int, minute: int) -> datetime:
 
 def test_should_fire_when_last_fired_yesterday_and_time_passed() -> None:
     now = _local(2026, 5, 17, 10, 0)
-    assert should_run_catchup(now, "09:00", "2026-05-16") is True
+    assert should_run_catchup(now, NINE_AM, "2026-05-16") is True
 
 
 def test_should_not_fire_when_already_fired_today() -> None:
     now = _local(2026, 5, 17, 10, 0)
-    assert should_run_catchup(now, "09:00", "2026-05-17") is False
+    assert should_run_catchup(now, NINE_AM, "2026-05-17") is False
 
 
 def test_should_not_fire_when_now_is_before_reminder_time() -> None:
     now = _local(2026, 5, 17, 8, 30)
-    assert should_run_catchup(now, "09:00", "2026-05-16") is False
+    assert should_run_catchup(now, NINE_AM, "2026-05-16") is False
 
 
 def test_should_fire_when_never_fired_before_and_time_passed() -> None:
     now = _local(2026, 5, 17, 10, 0)
-    assert should_run_catchup(now, "09:00", None) is True
+    assert should_run_catchup(now, NINE_AM, None) is True
 
 
 def test_should_fire_at_exactly_reminder_time() -> None:
     now = _local(2026, 5, 17, 9, 0)
-    assert should_run_catchup(now, "09:00", "2026-05-16") is True
+    assert should_run_catchup(now, NINE_AM, "2026-05-16") is True
 
 
 def test_should_treat_malformed_last_fired_as_not_today() -> None:
     now = _local(2026, 5, 17, 10, 0)
     # Garbage value should not block a fire — we'd rather over-fire than
     # silently never fire again.
-    assert should_run_catchup(now, "09:00", "garbage") is True
+    assert should_run_catchup(now, NINE_AM, "garbage") is True
 
 
 def test_mark_fired_writes_kv_and_last_fired_reads_it_back() -> None:

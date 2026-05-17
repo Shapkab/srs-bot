@@ -12,7 +12,7 @@ reminder was missed and a catch-up fire is needed.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot
@@ -46,7 +46,7 @@ def _last_fired() -> str | None:
 
 
 def should_run_catchup(
-    now_local: datetime, reminder_time_hhmm: str, last_fired_iso: str | None
+    now_local: datetime, reminder_time: time, last_fired_iso: str | None
 ) -> bool:
     """Pure decision function: should we fire send_daily_reminder right
     now on startup?
@@ -64,9 +64,11 @@ def should_run_catchup(
         if last_fired_date >= today_local:
             return False
 
-    hh, mm = reminder_time_hhmm.split(":")
     reminder_today = now_local.replace(
-        hour=int(hh), minute=int(mm), second=0, microsecond=0
+        hour=reminder_time.hour,
+        minute=reminder_time.minute,
+        second=0,
+        microsecond=0,
     )
     return now_local >= reminder_today
 
@@ -105,11 +107,12 @@ async def run_catchup_if_needed(bot: Bot, settings: Settings) -> bool:
 
 
 def schedule_daily_reminder(scheduler: AsyncIOScheduler, bot: Bot, settings: Settings) -> None:
-    hour_str, minute_str = settings.reminder_time.split(":")
     scheduler.add_job(
         send_daily_reminder,
         trigger=CronTrigger(
-            hour=int(hour_str), minute=int(minute_str), timezone=settings.timezone
+            hour=settings.reminder_time.hour,
+            minute=settings.reminder_time.minute,
+            timezone=settings.timezone,
         ),
         kwargs={"bot": bot, "settings": settings},
         id="daily_reminder",

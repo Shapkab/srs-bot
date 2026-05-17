@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from datetime import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -28,19 +29,22 @@ class Settings:
     db_path: Path
     owner_telegram_id: int
     timezone: str
-    reminder_time: str  # HH:MM
+    # Parsed once at config load; downstream code reads .hour / .minute
+    # instead of re-splitting an HH:MM string.
+    reminder_time: time
     log_level: str
 
 
 _REMINDER_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 
-def _validated_reminder_time(raw: str) -> str:
-    if _REMINDER_TIME_RE.fullmatch(raw) is None:
+def _validated_reminder_time(raw: str) -> time:
+    m = _REMINDER_TIME_RE.fullmatch(raw)
+    if m is None:
         raise RuntimeError(
             f"REMINDER_TIME must be HH:MM in 24-hour form, got: {raw!r}"
         )
-    return raw
+    return time(int(m.group(1)), int(m.group(2)))
 
 
 def load_settings() -> Settings:

@@ -8,7 +8,7 @@ the deleted card — no ReviewLog row, no ReviewState change.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -27,7 +27,7 @@ def _settings() -> Settings:
         db_path=Path("unused.db"),
         owner_telegram_id=1,
         timezone="UTC",
-        reminder_time="09:00",
+        reminder_time=time(9, 0),
         log_level="INFO",
     )
 

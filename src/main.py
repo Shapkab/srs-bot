@@ -65,7 +65,7 @@ async def _run(settings: Settings, log: logging.Logger) -> None:
     scheduler.start()
     log.info(
         "Scheduler started; daily reminder at %s %s",
-        settings.reminder_time,
+        settings.reminder_time.strftime("%H:%M"),
         settings.timezone,
     )
     log.info("DB backup scheduled daily at 03:00 %s", settings.timezone)
