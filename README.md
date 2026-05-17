@@ -25,6 +25,8 @@ A Telegram vocabulary SRS bot using FSRS 6. Single-user v1.
   as a single JSONL file
 - `/stats` — total cards, due now, learning/review/relearning split,
   reviews in last 7 days, retention rate over last 30 days
+- `/repair` — sweep all live cards and soft-delete any whose FSRS state
+  no longer parses (paired with the `cb_rate` corrupt-card guard)
 - Daily reminder at a configured time (with **catch-up** if the bot was
   offline at REMINDER_TIME — it fires once at next startup)
 - New-card rate-limited by `User.daily_new_limit` (default 10 per UTC day)
@@ -41,26 +43,37 @@ a non-breaking extension.
 
 ```
 src/
-  main.py             # entry: Bot + Dispatcher + APScheduler
-  config.py           # .env -> Settings
+  main.py             # entry: Bot + Dispatcher + APScheduler + instance lock
+  config.py           # .env -> Settings (reminder_time parsed to datetime.time)
+  logging_setup.py    # JsonFormatter + configure_logging
+  instance_lock.py    # POSIX flock-based single-instance guard
   db/
-    models.py         # User, Card, ReviewState, ReviewLog
-    engine.py         # SQLAlchemy engine + session_scope()
-    crud.py           # small CRUD layer used by handlers
+    models.py         # User, Card, ReviewState, ReviewLog, KV
+    engine.py         # SQLAlchemy engine + session_scope() + init_db (alembic)
+    crud.py           # CRUD layer; persist_review with optimistic-concurrency guard
   srs/
     scheduler.py      # the ONLY place that imports `fsrs`
   handlers/
     middleware.py     # OwnerOnlyMiddleware (single-user gate)
     start.py          # /start, /help, /due
-    add_card.py       # /add
+    add_card.py       # /add, /addm (FSM)
     review.py         # /review + callback handlers
+    cards.py          # /cards, /edit, /delete
+    undo.py           # /undo
+    export.py         # /export (JSONL)
+    stats.py          # /stats
+    repair.py         # /repair (corrupt-card sweep)
   keyboards/
     review.py         # inline keyboards
   jobs/
-    daily_reminder.py # APScheduler job
+    daily_reminder.py # APScheduler job + catch-up + KV last-fired
     backup.py         # daily online sqlite3.Connection.backup at 03:00
+migrations/           # Alembic chain (0001 baseline → 0004 head)
+scripts/
+  optimize.py         # fsrs-optimizer driver (prints; never applies)
 tests/
-  test_srs_roundtrip.py
+  conftest.py         # autouse fresh_db fixture (init_db → alembic upgrade head)
+  ...
 ```
 
 ## FSRS persistence: `card_json`
@@ -112,34 +125,7 @@ python -m src.main
 
 **Run `pytest -q` before anything else.** It exercises
 `add_card -> next_due_card -> apply_review -> persist_review` with the
-real `fsrs` library, no Telegram involved. If anything is wrong about
-the assumed `fsrs.Card.to_json/from_json` or `Scheduler.review_card`
-shape, you'll see it immediately and locally.
-
-## Verification status
-
-I built this against the py-fsrs README and DeepWiki-mirrored source
-docs without being able to install `fsrs` in my sandbox. The tests have
-not been executed against the live library. Things to know:
-
-**Confirmed against documentation:**
-- Imports `Scheduler, Card, Rating, State, ReviewLog`
-- `scheduler.review_card(card, rating)` returns `(card, review_log)`
-- `Card()` produces a card due immediately, in Learning state
-- `Card.to_json()` / `Card.from_json(s)` is the documented round-trip
-- `Rating` and `State` integer values
-- py-fsrs uses UTC only
-
-**Not yet exercised in a real run:**
-- That the full pytest passes end-to-end
-- That `fsrs_log.review_datetime` is the exact attribute name (search
-  results show this string in printed examples; assumed correct)
-- aiogram v3.28 dependency injection via `dp["settings"] = settings`
-  (documented v3 pattern; not verified by running the bot)
-
-If `pytest -q` fails, paste the traceback and I'll fix it. The most
-likely failure point is `src/srs/scheduler.py` — that's the only file
-that touches `fsrs`.
+real `fsrs` library, no Telegram involved.
 
 ## Logging
 
@@ -181,8 +167,9 @@ configurable in v1.
 
 ## Migrations (Alembic)
 
-Schema is managed by **Alembic** (`pip install -e ".[dev]"`).
-Migrations are not auto-applied at startup — run them by hand:
+Schema is managed by **Alembic** (a regular runtime dep since Phase 7.2:
+`init_db()` runs `alembic upgrade head` in-process at startup). You can
+still drive it manually:
 
 ```bash
 # Fresh DB or legacy DB — same command, the env.py handoff figures it out.
