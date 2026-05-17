@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from logging.config import fileConfig
@@ -5,6 +6,13 @@ from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+log = logging.getLogger("alembic.env")
+
+# Revision that produced the legacy retired-scripts schema (Phase 6.1's
+# baseline). A pre-Phase-7 DB with PRAGMA user_version == 1 should be
+# stamped here, then continue with 0002+. See run_migrations_online.
+_LEGACY_BASELINE_REV = "0001"
 
 # Make the project importable so we can pull in models.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -59,12 +67,43 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _stamp_alembic_at(connection, revision: str) -> None:
+    """Write ``revision`` into the ``alembic_version`` table without
+    running any migration. Used to hand off a legacy DB (built by the
+    retired one-shot scripts) to the Alembic chain mid-stream.
+    """
+    connection.exec_driver_sql(
+        "CREATE TABLE IF NOT EXISTS alembic_version "
+        "(version_num VARCHAR(32) NOT NULL, "
+        "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+    )
+    connection.exec_driver_sql("DELETE FROM alembic_version")
+    connection.exec_driver_sql(
+        "INSERT INTO alembic_version (version_num) VALUES (:r)",
+        {"r": revision},
+    )
+
+
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
     In this scenario we need to create an Engine
     and associate a connection with the context.
 
+    Before delegating to ``context.run_migrations()`` we inspect
+    ``PRAGMA user_version``:
+
+      * 0 — fresh DB (no prior migration). Standard alembic upgrade
+        from baseline.
+      * 1 — pre-Phase-7 DB built by the retired ``scripts/migrate_001-003``
+        one-shots. The baseline schema is already in place; stamp at
+        revision 0001 so the baseline's upgrade() does not re-run
+        against existing tables. Subsequent revisions (0002+) still
+        apply normally.
+      * anything else — log a warning and proceed unchanged.
+
+    PRAGMA user_version is not re-written; ``alembic_version`` is the
+    source of truth from now on.
     """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
@@ -73,9 +112,36 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        # Pre-handoff inspection runs in its own short-lived transaction
+        # so it does NOT leave an open transaction on the connection that
+        # would prevent Alembic from committing its own alembic_version
+        # update at the end of run_migrations().
+        with connection.begin():
+            already_tracked = (
+                connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name='alembic_version'"
+                ).first()
+                is not None
+            )
+            if not already_tracked:
+                row = connection.exec_driver_sql("PRAGMA user_version").first()
+                user_version = row[0] if row is not None else 0
+                if user_version == 1:
+                    log.info(
+                        "Legacy DB detected (PRAGMA user_version=1); "
+                        "stamping at %s",
+                        _LEGACY_BASELINE_REV,
+                    )
+                    _stamp_alembic_at(connection, _LEGACY_BASELINE_REV)
+                elif user_version > 1:
+                    log.warning(
+                        "Unexpected PRAGMA user_version=%s; proceeding "
+                        "without handoff",
+                        user_version,
+                    )
+
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

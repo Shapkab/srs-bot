@@ -185,12 +185,8 @@ Schema is managed by **Alembic** (`pip install -e ".[dev]"`).
 Migrations are not auto-applied at startup — run them by hand:
 
 ```bash
-# Fresh DB: create everything from scratch.
+# Fresh DB or legacy DB — same command, the env.py handoff figures it out.
 DB_PATH=./srs.db alembic upgrade head
-
-# Already-running DB created by an earlier version of this code (which
-# used Base.metadata.create_all): tell Alembic where you are.
-DB_PATH=./srs.db alembic stamp head
 
 # Inspect history / current revision:
 alembic history
@@ -206,8 +202,12 @@ The four revisions in `migrations/versions/` are:
 | `0003` | `card.deleted_at` — soft-delete tombstone                     |
 | `0004` | `review_state.suspended_at` + `kv` table                      |
 
-Users upgrading from a pre-Phase-3 DB can `alembic stamp 0001` and then
-`alembic upgrade head` to pick up the three column adds in sequence.
+`migrations/env.py` inspects `PRAGMA user_version` before running:
+`user_version == 1` means the DB was built by the (retired) one-shot
+`scripts/migrate_001-003.py` scripts, so the baseline schema is already
+in place. The env script stamps `alembic_version` at revision `0001`
+without re-running `CREATE TABLE`, then lets `0002 → 0004` apply
+normally. Fresh DBs (`user_version == 0`) run the whole chain.
 
 ## FSRS parameter optimization
 
