@@ -25,6 +25,7 @@ HELP_TEXT = (
     "/delete &lt;id&gt; — delete a card (history preserved)\n"
     "/export — download all your cards and review history as JSONL\n"
     "/stats — summary numbers (totals, due, retention)\n"
+    "/repair — soft-delete cards whose FSRS state is unreadable\n"
     "/help — this message"
 )
 

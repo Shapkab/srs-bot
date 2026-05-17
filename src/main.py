@@ -18,7 +18,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import Settings, load_settings
 from src.db.engine import init_db
-from src.handlers import add_card, cards, export, review, start, stats, undo
+from src.handlers import add_card, cards, export, repair, review, start, stats, undo
 from src.handlers.middleware import OwnerOnlyMiddleware
 from src.instance_lock import InstanceAlreadyRunning, instance_lock, lock_path_for
 from src.jobs.backup import schedule_db_backup
@@ -45,6 +45,7 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
     dp.include_router(cards.router)
     dp.include_router(undo.router)
     dp.include_router(stats.router)
+    dp.include_router(repair.router)
     return dp
 
 
