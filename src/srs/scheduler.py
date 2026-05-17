@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fsrs import Card as FsrsCard
 from fsrs import Rating as FsrsRating
@@ -38,6 +38,7 @@ from fsrs import Scheduler
 from fsrs import State as FsrsState
 
 from src.db.models import CardState, Rating
+from src.utils.time import ensure_utc
 
 
 class CorruptCardJsonError(Exception):
@@ -100,7 +101,7 @@ def new_card_state() -> NewCardState:
     fsrs_card = FsrsCard()
     return NewCardState(
         card_json=fsrs_card.to_json(),
-        due=_ensure_utc(fsrs_card.due),
+        due=ensure_utc(fsrs_card.due),
         state=_STATE_FROM_FSRS[fsrs_card.state],
     )
 
@@ -129,9 +130,9 @@ def restore_from_json(card_json: str) -> RestoredCardState:
         raise CorruptCardJsonError(None, e) from e
     return RestoredCardState(
         card_json=card_json,
-        due=_ensure_utc(fsrs_card.due),
+        due=ensure_utc(fsrs_card.due),
         last_review=(
-            _ensure_utc(fsrs_card.last_review) if fsrs_card.last_review else None
+            ensure_utc(fsrs_card.last_review) if fsrs_card.last_review else None
         ),
         state=_STATE_FROM_FSRS[fsrs_card.state],
     )
@@ -178,26 +179,26 @@ def apply_review(
     updated_card, fsrs_log = _scheduler.review_card(fsrs_card, _RATING_TO_FSRS[rating])
 
     # Use the library's own review_datetime as the canonical timestamp.
-    now = _ensure_utc(fsrs_log.review_datetime)
+    now = ensure_utc(fsrs_log.review_datetime)
 
     # Elapsed days since the previous review of this card. Zero on first review.
     elapsed_days = 0.0
     if prev_last_review is not None:
-        elapsed_days = (now - _ensure_utc(prev_last_review)).total_seconds() / 86400.0
+        elapsed_days = (now - ensure_utc(prev_last_review)).total_seconds() / 86400.0
 
     # Scheduled interval that was in effect before this review.
     scheduled_days = 0.0
     if prev_last_review is not None:
         scheduled_days = (
-            (_ensure_utc(prev_due) - _ensure_utc(prev_last_review)).total_seconds() / 86400.0
+            (ensure_utc(prev_due) - ensure_utc(prev_last_review)).total_seconds() / 86400.0
         )
 
     # updated_card.last_review is set by the library to its internal now.
-    last_review = _ensure_utc(updated_card.last_review) if updated_card.last_review else now
+    last_review = ensure_utc(updated_card.last_review) if updated_card.last_review else now
 
     return ReviewResult(
         card_json=updated_card.to_json(),
-        due=_ensure_utc(updated_card.due),
+        due=ensure_utc(updated_card.due),
         last_review=last_review,
         new_state=_STATE_FROM_FSRS[updated_card.state],
         elapsed_days=elapsed_days,
@@ -206,13 +207,4 @@ def apply_review(
     )
 
 
-# --- Helpers -----------------------------------------------------------------
-
-
-def _ensure_utc(dt: datetime) -> datetime:
-    """py-fsrs requires UTC-aware datetimes. SQLite via SQLAlchemy may
-    return naive datetimes depending on driver — coerce here.
-    """
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=UTC)
-    return dt.astimezone(UTC)
+# ensure_utc lives in src/utils/time.py — imported above.

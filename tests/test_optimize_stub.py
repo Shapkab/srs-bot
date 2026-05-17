@@ -57,10 +57,10 @@ def test_optimize_main_handles_missing_optimize_with_db(
 
     from sqlalchemy import select
 
+    from scripts.optimize import MIN_REVIEWS
     from src.db.crud import add_card, get_or_create_user
     from src.db.engine import session_scope
     from src.db.models import Card, Rating, ReviewLog
-    from scripts.optimize import MIN_REVIEWS
 
     with session_scope() as s:
         user = get_or_create_user(s, telegram_id=1, username="t", tz="UTC")

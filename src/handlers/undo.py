@@ -24,14 +24,11 @@ from src.db.crud import get_or_create_user
 from src.db.engine import session_scope
 from src.db.models import Rating, ReviewLog, ReviewState
 from src.srs.scheduler import CorruptCardJsonError, restore_from_json
+from src.utils.time import ensure_utc
 
 router = Router(name="undo")
 
 UNDO_WINDOW = timedelta(minutes=10)
-
-
-def _ensure_utc(dt: datetime) -> datetime:
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 @router.message(Command("undo"))
@@ -54,7 +51,7 @@ async def cmd_undo(message: Message, settings: Settings) -> None:
             await message.answer("Nothing to undo.")
             return
 
-        if datetime.now(UTC) - _ensure_utc(latest.reviewed_at) > UNDO_WINDOW:
+        if datetime.now(UTC) - ensure_utc(latest.reviewed_at) > UNDO_WINDOW:
             await message.answer("That review is older than 10 minutes — too late to undo.")
             return
 

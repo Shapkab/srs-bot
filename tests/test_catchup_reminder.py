@@ -10,8 +10,6 @@ from __future__ import annotations
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
-NINE_AM = time(9, 0)
-
 from sqlalchemy import select
 
 from src.db.engine import session_scope
@@ -22,6 +20,8 @@ from src.jobs.daily_reminder import (
     _mark_fired,
     should_run_catchup,
 )
+
+NINE_AM = time(9, 0)
 
 
 def _local(year: int, month: int, day: int, hour: int, minute: int) -> datetime:

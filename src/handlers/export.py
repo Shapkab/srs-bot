@@ -44,16 +44,13 @@ from src.config import Settings
 from src.db.crud import get_or_create_user
 from src.db.engine import session_scope
 from src.db.models import Card, ReviewLog, ReviewState
+from src.utils.time import ensure_utc
 
 router = Router(name="export")
 
 
 def _iso(dt: datetime | None) -> str | None:
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-    return dt.isoformat()
+    return ensure_utc(dt).isoformat() if dt is not None else None
 
 
 def build_export_jsonl(s: Session, user_id: int) -> bytes:
