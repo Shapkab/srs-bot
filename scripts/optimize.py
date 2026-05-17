@@ -65,9 +65,23 @@ def main(argv: list[str]) -> int:
     # The actual optimizer API takes a CSV / DataFrame of reviews; the
     # exact shape depends on the version installed. This script is a stub
     # that points at the DB rows you'll want to feed in and prints what
-    # comes back. Adjust to match the optimizer version you install.
+    # comes back. ``optimize_with_db`` is not present on every release of
+    # fsrs-optimizer — fall back to a clear message rather than crashing
+    # with AttributeError when it's missing.
     optimizer = Optimizer()
-    weights = optimizer.optimize_with_db(str(db_path))  # type: ignore[attr-defined]
+    optimize_with_db = getattr(optimizer, "optimize_with_db", None)
+    if optimize_with_db is None:
+        print(
+            "fsrs-optimizer is installed but does not expose "
+            "optimize_with_db(); this script is a stub for that API. "
+            "Update scripts/optimize.py to call the optimizer entry "
+            "point your version exposes (see "
+            "https://github.com/open-spaced-repetition/fsrs-optimizer).",
+            file=sys.stderr,
+        )
+        return 1
+
+    weights = optimize_with_db(str(db_path))
     print("Suggested FSRS 6 parameters (21 weights):")
     print(tuple(weights))
     print(
