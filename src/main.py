@@ -16,8 +16,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import Settings, load_settings
 from src.db.engine import init_db
-from src.handlers import add_card, review, start
+from src.handlers import add_card, export, review, start
 from src.handlers.middleware import OwnerOnlyMiddleware
+from src.jobs.backup import schedule_db_backup
 from src.jobs.daily_reminder import schedule_daily_reminder
 
 
@@ -35,6 +36,7 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
     dp.include_router(start.router)
     dp.include_router(add_card.router)
     dp.include_router(review.router)
+    dp.include_router(export.router)
     return dp
 
 
@@ -57,8 +59,10 @@ async def main() -> None:
 
     scheduler = AsyncIOScheduler(timezone=settings.timezone)
     schedule_daily_reminder(scheduler, bot, settings)
+    schedule_db_backup(scheduler, settings)
     scheduler.start()
     log.info("Scheduler started; daily reminder at %s %s", settings.reminder_time, settings.timezone)
+    log.info("DB backup scheduled daily at 03:00 %s", settings.timezone)
 
     try:
         await dp.start_polling(bot)

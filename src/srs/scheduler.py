@@ -28,6 +28,7 @@ library's documented mechanism for "easy database storage."
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -37,6 +38,19 @@ from fsrs import Scheduler
 from fsrs import State as FsrsState
 
 from src.db.models import CardState, Rating
+
+
+class CorruptCardJsonError(Exception):
+    """Raised when a ``ReviewState.card_json`` blob cannot be deserialized
+    by ``fsrs.Card.from_json``. The scheduler layer does not know the
+    state_id at the point of failure; callers that do (the handler layer)
+    are expected to log it.
+    """
+
+    def __init__(self, state_id: int | None, original: Exception) -> None:
+        super().__init__(f"corrupt card_json (state_id={state_id}): {original!r}")
+        self.state_id = state_id
+        self.original = original
 
 
 # A single Scheduler instance is safe to share — it holds parameters,
@@ -116,8 +130,15 @@ def apply_review(
 
     Inputs are taken from the current ReviewState row. The caller
     persists the result via crud.persist_review().
+
+    Raises ``CorruptCardJsonError`` if ``card_json`` cannot be parsed —
+    this protects the user's irreplaceable history from being silently
+    overwritten on top of a broken state.
     """
-    fsrs_card = FsrsCard.from_json(card_json)
+    try:
+        fsrs_card = FsrsCard.from_json(card_json)
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+        raise CorruptCardJsonError(None, e) from e
     state_before_int = int(fsrs_card.state)
 
     # Documented 2-argument call. The library timestamps the review

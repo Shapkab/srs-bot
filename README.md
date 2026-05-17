@@ -16,7 +16,10 @@ A Telegram vocabulary SRS bot using FSRS 6. Single-user v1.
 - `/start`, `/help`, `/due`
 - `/add front | back` — add a card
 - `/review` — review due cards, rate Again/Hard/Good/Easy, FSRS reschedules
+- `/export` — download all of your cards, review states, and review logs
+  as a single JSONL file
 - Daily reminder at a configured time
+- Daily online DB backup at 03:00 in your configured timezone (see "Backups" below)
 
 Out of scope for v1 (deliberately): LLM-generated cards, audio/TTS, web UI,
 shared decks, Anki import/export. The schema supports multi-user from day
@@ -44,6 +47,7 @@ src/
     review.py         # inline keyboards
   jobs/
     daily_reminder.py # APScheduler job
+    backup.py         # daily online sqlite3.Connection.backup at 03:00
 tests/
   test_srs_roundtrip.py
 ```
@@ -125,6 +129,24 @@ not been executed against the live library. Things to know:
 If `pytest -q` fails, paste the traceback and I'll fix it. The most
 likely failure point is `src/srs/scheduler.py` — that's the only file
 that touches `fsrs`.
+
+## Backups
+
+`src/jobs/backup.py` runs once a day at **03:00** in `settings.timezone`. It
+uses SQLite's online backup API (`sqlite3.Connection.backup`) to take a
+consistent snapshot without stopping the bot, and writes it to:
+
+```
+<DB_PATH>.parent/backups/srs-YYYYMMDD.db
+```
+
+Any `-wal` / `-shm` siblings of the live DB are copied alongside as a
+defensive measure (the snapshot is consistent on its own; the siblings
+are belt-and-suspenders).
+
+Retention: the seven most recent backups are kept; older files are
+pruned each run. The backup time (03:00) is intentionally not
+configurable in v1.
 
 ## Migrations
 

@@ -11,6 +11,7 @@ Flow:
 from __future__ import annotations
 
 import html
+import logging
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -22,7 +23,9 @@ from src.db.crud import get_or_create_user, next_due_card, persist_review
 from src.db.engine import session_scope
 from src.db.models import Card, Rating, ReviewState
 from src.keyboards.review import rating_kb, show_answer_kb
-from src.srs.scheduler import apply_review
+from src.srs.scheduler import CorruptCardJsonError, apply_review
+
+log = logging.getLogger(__name__)
 
 router = Router(name="review")
 
@@ -92,12 +95,28 @@ async def cb_rate(callback: CallbackQuery, settings: Settings) -> None:
             await callback.answer("Card not found.", show_alert=True)
             return
 
-        result = apply_review(
-            card_json=state.card_json,
-            prev_due=state.due,
-            prev_last_review=state.last_review,
-            rating=rating,
-        )
+        try:
+            result = apply_review(
+                card_json=state.card_json,
+                prev_due=state.due,
+                prev_last_review=state.last_review,
+                rating=rating,
+            )
+        except CorruptCardJsonError as e:
+            # The user's history (ReviewLog) is irreplaceable; do not write
+            # anything on top of a broken state. Surface a clear message and
+            # leave the corrupt row for /repair to fix.
+            log.warning("corrupt card_json on state_id=%s: %s", state.id, e.original)
+            corrupt_msg = (
+                "This card's state is corrupt; it's been skipped — please run /repair"
+            )
+            if callback.message is None:
+                await callback.answer(corrupt_msg, show_alert=True)
+            else:
+                await callback.message.edit_text(corrupt_msg)
+                await callback.answer()
+            return
+
         applied = persist_review(s, state, rating, result)
         if not applied:
             # Double-tap (or other concurrent click) already advanced the row.
