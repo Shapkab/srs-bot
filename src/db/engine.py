@@ -48,7 +48,9 @@ def init_db(db_path: Path) -> None:
     """
     global _engine, _SessionLocal
     _engine = _build_engine(db_path)
-    _SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    _SessionLocal = sessionmaker(
+        bind=_engine, autoflush=False, autocommit=False, expire_on_commit=False
+    )
     Base.metadata.create_all(_engine)
 
 

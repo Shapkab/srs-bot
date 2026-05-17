@@ -62,7 +62,11 @@ async def _run(settings: Settings, log: logging.Logger) -> None:
     schedule_daily_reminder(scheduler, bot, settings)
     schedule_db_backup(scheduler, settings)
     scheduler.start()
-    log.info("Scheduler started; daily reminder at %s %s", settings.reminder_time, settings.timezone)
+    log.info(
+        "Scheduler started; daily reminder at %s %s",
+        settings.reminder_time,
+        settings.timezone,
+    )
     log.info("DB backup scheduled daily at 03:00 %s", settings.timezone)
 
     # If we started after today's REMINDER_TIME and never fired today, do it now.

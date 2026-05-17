@@ -6,8 +6,7 @@ to add caching / metrics later.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time, timezone
-from typing import Optional
+from datetime import UTC, datetime, time
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -21,7 +20,7 @@ from src.srs.scheduler import ReviewResult, new_card_state
 LEECH_LAPSE_THRESHOLD = 8
 
 
-def get_or_create_user(s: Session, telegram_id: int, username: Optional[str], tz: str) -> User:
+def get_or_create_user(s: Session, telegram_id: int, username: str | None, tz: str) -> User:
     user = s.scalar(select(User).where(User.telegram_id == telegram_id))
     if user is None:
         user = User(telegram_id=telegram_id, username=username, timezone=tz)
@@ -35,7 +34,7 @@ def add_card(
     user: User,
     front: str,
     back: str,
-    tags: Optional[str] = None,
+    tags: str | None = None,
     source: str = "manual",
 ) -> Card:
     card = Card(owner_id=user.id, front=front, back=back, tags=tags, source=source)
@@ -73,7 +72,7 @@ def _todays_new_card_count(s: Session, user: User, now: datetime) -> int:
     return s.scalar(stmt) or 0
 
 
-def next_due_card(s: Session, user: User, now: datetime | None = None) -> Optional[ReviewState]:
+def next_due_card(s: Session, user: User, now: datetime | None = None) -> ReviewState | None:
     """Return the next ReviewState whose card is due, oldest-due first.
 
     Excluded:
@@ -85,7 +84,7 @@ def next_due_card(s: Session, user: User, now: datetime | None = None) -> Option
     Reviews of cards the user has already touched are not capped — those
     are owed work, not new starts.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     stmt = (
         select(ReviewState)
         .join(Card, ReviewState.card_id == Card.id)
@@ -110,7 +109,7 @@ def due_count(s: Session, user: User, now: datetime | None = None) -> int:
     Does NOT apply the daily_new_limit cap — that's a queue-shaping rule
     for /review, not a count of work owed.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     stmt = (
         select(func.count())
         .select_from(ReviewState)

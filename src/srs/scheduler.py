@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fsrs import Card as FsrsCard
 from fsrs import Rating as FsrsRating
@@ -214,5 +214,5 @@ def _ensure_utc(dt: datetime) -> datetime:
     return naive datetimes depending on driver — coerce here.
     """
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)

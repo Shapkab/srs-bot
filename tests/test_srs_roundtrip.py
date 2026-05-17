@@ -12,7 +12,7 @@ Verifies:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.db.crud import add_card, get_or_create_user, next_due_card, persist_review
 from src.db.engine import session_scope
@@ -92,7 +92,7 @@ def test_again_increments_lapses() -> None:
     with session_scope() as s:
         state = s.query(ReviewState).first()
         assert state is not None
-        state.due = datetime.now(timezone.utc)
+        state.due = datetime.now(UTC)
 
     # Second review: Again -> should bump lapses.
     with session_scope() as s:

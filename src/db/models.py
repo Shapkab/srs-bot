@@ -31,8 +31,7 @@ Design notes
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     BigInteger,
@@ -50,7 +49,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 def utcnow() -> datetime:
     """UTC-aware now."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):
@@ -89,7 +88,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
-    username: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    username: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
     daily_new_limit: Mapped[int] = mapped_column(Integer, default=10)
@@ -97,8 +96,8 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    cards: Mapped[list["Card"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
-    states: Mapped[list["ReviewState"]] = relationship(
+    cards: Mapped[list[Card]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    states: Mapped[list[ReviewState]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -118,7 +117,7 @@ class Card(Base):
     back: Mapped[str] = mapped_column(Text)
 
     # Free-form, comma-separated tags. Adequate for v1.
-    tags: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    tags: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # "manual", "import:anki", "llm:article-2026-05", etc.
     source: Mapped[str] = mapped_column(String(64), default="manual")
@@ -132,11 +131,11 @@ class Card(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    owner: Mapped["User"] = relationship(back_populates="cards")
-    state: Mapped["ReviewState"] = relationship(
+    owner: Mapped[User] = relationship(back_populates="cards")
+    state: Mapped[ReviewState] = relationship(
         back_populates="card", cascade="all, delete-orphan", uselist=False
     )
-    logs: Mapped[list["ReviewLog"]] = relationship(
+    logs: Mapped[list[ReviewLog]] = relationship(
         back_populates="card", cascade="all, delete-orphan"
     )
 
@@ -166,7 +165,7 @@ class ReviewState(Base):
 
     # Indexed because "find next due card" is the primary query.
     due: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    last_review: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_review: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     state: Mapped[CardState] = mapped_column(Enum(CardState), default=CardState.LEARNING)
 
     # --- Aggregate counters (maintained by our code, not FSRS) ------------
@@ -181,8 +180,8 @@ class ReviewState(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    user: Mapped["User"] = relationship(back_populates="states")
-    card: Mapped["Card"] = relationship(back_populates="state")
+    user: Mapped[User] = relationship(back_populates="states")
+    card: Mapped[Card] = relationship(back_populates="state")
 
 
 class ReviewLog(Base):
@@ -221,7 +220,7 @@ class ReviewLog(Base):
     # written by code older than this column (see scripts/migrate_001_*).
     card_json_before: Mapped[str] = mapped_column(Text, default="")
 
-    card: Mapped["Card"] = relationship(back_populates="logs")
+    card: Mapped[Card] = relationship(back_populates="logs")
 
 
 class KV(Base):
