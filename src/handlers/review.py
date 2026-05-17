@@ -70,6 +70,12 @@ async def cb_show_answer(callback: CallbackQuery) -> None:
         if state is None:
             await callback.answer("Card not found.", show_alert=True)
             return
+        # Guard against a stale keyboard for a card that has since been
+        # /delete'd. Without this, the user could tap "Show answer" on a
+        # zombie card and proceed to rate it.
+        if state.card.deleted_at is not None:
+            await callback.answer("This card was deleted.", show_alert=True)
+            return
         text = _format_front_back(state.card)
 
     # Telegram strips .message from callbacks older than ~48h.
@@ -93,6 +99,12 @@ async def cb_rate(callback: CallbackQuery, settings: Settings) -> None:
         state = s.scalar(select(ReviewState).where(ReviewState.id == state_id))
         if state is None:
             await callback.answer("Card not found.", show_alert=True)
+            return
+        # Guard against a stale keyboard for a card that has since been
+        # /delete'd — without this, the rating would write a ReviewLog
+        # row + advance ReviewState, resurrecting the "deleted" card.
+        if state.card.deleted_at is not None:
+            await callback.answer("This card was deleted.", show_alert=True)
             return
 
         try:
