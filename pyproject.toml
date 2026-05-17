@@ -1,0 +1,52 @@
+[project]
+name = "srs-bot"
+version = "0.1.0"
+description = "Telegram SRS vocabulary bot (FSRS 6)"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    # Versions verified against PyPI/GitHub on 2026-05-17.
+    # aiogram 3.10+ uses Python 3.10+; we pin to >=3.11 for typing ergonomics.
+    "aiogram>=3.28,<4",
+    # py-fsrs is the canonical Python implementation of FSRS.
+    # 6.x is the current major (FSRS 6 model). Exact method signatures
+    # are confirmed against the open-spaced-repetition/py-fsrs README at integration time.
+    "fsrs>=6.0,<7",
+    "SQLAlchemy>=2.0,<3",
+    "APScheduler>=3.10,<4",
+    "python-dotenv>=1.0",
+    # Pydantic v2 is used internally by aiogram; pin loosely.
+    "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+# FSRS optimizer is a SEPARATE package, pulled in only when you have
+# enough review_log rows to retrain parameters (rough heuristic: hundreds
+# to thousands of reviews). Not needed for v1.
+optimizer = [
+    "fsrs-optimizer>=5.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
