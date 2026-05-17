@@ -12,25 +12,14 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-import pytest
 from sqlalchemy import select
 
-from src.db import engine as engine_mod
 from src.db.crud import add_card, get_or_create_user, persist_review
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import Rating, ReviewLog, ReviewState
 from src.handlers.export import build_export_jsonl
 from src.srs.scheduler import apply_review
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 def _seed_two_cards_three_reviews() -> int:

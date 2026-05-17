@@ -7,23 +7,13 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import pytest
 from sqlalchemy import select
 
 from src.config import Settings
-from src.db import engine as engine_mod
 from src.db.crud import add_card, get_or_create_user
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import ReviewLog, ReviewState
 from src.handlers.review import cb_rate, cb_show_answer
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 class StubCallback:

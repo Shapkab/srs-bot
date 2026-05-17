@@ -13,25 +13,11 @@ Verifies:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 
-import pytest
-
-from src.db import engine as engine_mod
 from src.db.crud import add_card, get_or_create_user, next_due_card, persist_review
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import Rating, ReviewLog, ReviewState
 from src.srs.scheduler import apply_review
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    # Reset module-level engine state between tests.
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    db_path = tmp_path / "test.db"
-    init_db(db_path)
-    yield
 
 
 def _user(s, telegram_id: int = 1):

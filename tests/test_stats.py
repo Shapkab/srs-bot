@@ -7,23 +7,13 @@ assert the numbers come out as expected.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 
-from src.db import engine as engine_mod
 from src.db.crud import add_card, get_or_create_user
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import CardState, Rating, ReviewLog, ReviewState
 from src.handlers.stats import compute_stats
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 def _seed_empty_user() -> int:

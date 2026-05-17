@@ -8,14 +8,11 @@ indirectly via the KV state it reads/writes.
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import pytest
 from sqlalchemy import select
 
-from src.db import engine as engine_mod
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import KV
 from src.jobs.daily_reminder import (
     LAST_FIRED_KEY,
@@ -23,14 +20,6 @@ from src.jobs.daily_reminder import (
     _mark_fired,
     should_run_catchup,
 )
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 def _local(year: int, month: int, day: int, hour: int, minute: int) -> datetime:

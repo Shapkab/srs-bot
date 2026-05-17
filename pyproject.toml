@@ -24,6 +24,10 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.5",
     "mypy>=1.10",
+    # Alembic is invoked manually (`alembic upgrade head`); not auto-run
+    # at startup. Dev-only because v1 users can also stick with
+    # Base.metadata.create_all on a fresh DB.
+    "alembic>=1.13",
 ]
 # FSRS optimizer is a SEPARATE package, pulled in only when you have
 # enough review_log rows to retrain parameters (rough heuristic: hundreds

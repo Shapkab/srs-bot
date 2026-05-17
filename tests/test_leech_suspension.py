@@ -5,12 +5,9 @@ and stops surfacing in ``next_due_card`` / ``due_count``.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-import pytest
 from sqlalchemy import select
 
-from src.db import engine as engine_mod
 from src.db.crud import (
     LEECH_LAPSE_THRESHOLD,
     add_card,
@@ -19,17 +16,9 @@ from src.db.crud import (
     next_due_card,
     persist_review,
 )
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import Rating, ReviewState
 from src.srs.scheduler import apply_review
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 def _rate(rating: Rating) -> bool:

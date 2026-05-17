@@ -8,24 +8,14 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import pytest
 from sqlalchemy import select
 
 from src.config import Settings
-from src.db import engine as engine_mod
 from src.db.crud import add_card, get_or_create_user, persist_review
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import Rating, ReviewLog, ReviewState
 from src.handlers.undo import cmd_undo
 from src.srs.scheduler import apply_review
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 def _settings() -> Settings:

@@ -13,24 +13,13 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pytest
-
-from src.db import engine as engine_mod
 from src.db.crud import add_card, get_or_create_user
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.jobs.backup import RETENTION, prune_backups, run_backup
 
 
-@pytest.fixture
-def db_path(tmp_path: Path) -> Path:
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    p = tmp_path / "live.db"
-    init_db(p)
-    return p
-
-
-def test_run_backup_writes_a_valid_sqlite_snapshot(db_path: Path) -> None:
+def test_run_backup_writes_a_valid_sqlite_snapshot(fresh_db: Path) -> None:
+    db_path = fresh_db
     with session_scope() as s:
         user = get_or_create_user(s, telegram_id=1, username="t", tz="UTC")
         add_card(s, user, front="reach out to", back="contact someone")
@@ -61,7 +50,8 @@ def _touch_backup_dated(db_path: Path, yyyymmdd: str) -> Path:
     return p
 
 
-def test_prune_backups_keeps_last_seven(db_path: Path) -> None:
+def test_prune_backups_keeps_last_seven(fresh_db: Path) -> None:
+    db_path = fresh_db
     # Create 10 dated backups, ascending.
     dates = [f"2026010{i}" if i < 10 else f"202601{i}" for i in range(1, 11)]
     for d in dates:
@@ -85,7 +75,8 @@ def test_prune_backups_keeps_last_seven(db_path: Path) -> None:
         assert (backup_dir / f"srs-{d}.db").exists()
 
 
-def test_prune_backups_noop_when_under_retention(db_path: Path) -> None:
+def test_prune_backups_noop_when_under_retention(fresh_db: Path) -> None:
+    db_path = fresh_db
     for d in ("20260101", "20260102", "20260103"):
         _touch_backup_dated(db_path, d)
     deleted = prune_backups(db_path)

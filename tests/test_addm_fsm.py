@@ -9,15 +9,13 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import pytest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 from sqlalchemy import select
 
 from src.config import Settings
-from src.db import engine as engine_mod
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import Card
 from src.handlers.add_card import (
     AddCardFSM,
@@ -28,14 +26,6 @@ from src.handlers.add_card import (
     cmd_addm_start,
     cmd_addm_tags,
 )
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 def _settings() -> Settings:

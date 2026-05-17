@@ -179,19 +179,50 @@ Retention: the seven most recent backups are kept; older files are
 pruned each run. The backup time (03:00) is intentionally not
 configurable in v1.
 
-## Migrations
+## Migrations (Alembic)
 
-v1 uses `Base.metadata.create_all()` for fresh installs. Two one-shot
-migration scripts are bundled for existing DBs that predate Phase 3:
+Schema is managed by **Alembic** (`pip install -e ".[dev]"`).
+Migrations are not auto-applied at startup — run them by hand:
 
+```bash
+# Fresh DB: create everything from scratch.
+DB_PATH=./srs.db alembic upgrade head
+
+# Already-running DB created by an earlier version of this code (which
+# used Base.metadata.create_all): tell Alembic where you are.
+DB_PATH=./srs.db alembic stamp head
+
+# Inspect history / current revision:
+alembic history
+DB_PATH=./srs.db alembic current
 ```
-python -m scripts.migrate_001_card_json_before /path/to/srs.db
-python -m scripts.migrate_002_card_deleted_at  /path/to/srs.db
-python -m scripts.migrate_003_review_state_suspended_at /path/to/srs.db
+
+The four revisions in `migrations/versions/` are:
+
+| Rev    | What it does                                                  |
+|--------|---------------------------------------------------------------|
+| `0001` | Baseline: original four tables (pre-Phase-3 schema)           |
+| `0002` | `review_log.card_json_before` — pre-review snapshot for `/undo` |
+| `0003` | `card.deleted_at` — soft-delete tombstone                     |
+| `0004` | `review_state.suspended_at` + `kv` table                      |
+
+Users upgrading from a pre-Phase-3 DB can `alembic stamp 0001` and then
+`alembic upgrade head` to pick up the three column adds in sequence.
+
+## FSRS parameter optimization
+
+After a few hundred reviews, `scripts/optimize.py` can ask
+[`fsrs-optimizer`](https://github.com/open-spaced-repetition/fsrs-optimizer)
+for personalized FSRS 6 weights:
+
+```bash
+pip install -e ".[optimizer]"
+python -m scripts.optimize ./srs.db
 ```
 
-Both are idempotent (no-op if the column is already present). They will
-be re-expressed as Alembic revisions in a later iteration.
+The script **prints** suggested weights and does not write anywhere —
+you copy them into `Scheduler(parameters=(...,))` in
+[src/srs/scheduler.py](src/srs/scheduler.py) when you're satisfied.
 
 ## Scale path (notes, not promises)
 

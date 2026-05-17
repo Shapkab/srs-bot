@@ -6,24 +6,13 @@ capped — those are owed work.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-import pytest
 from sqlalchemy import select
 
-from src.db import engine as engine_mod
 from src.db.crud import add_card, get_or_create_user, next_due_card, persist_review
-from src.db.engine import init_db, session_scope
+from src.db.engine import session_scope
 from src.db.models import Rating, ReviewState
 from src.srs.scheduler import apply_review
-
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path: Path):
-    engine_mod._engine = None
-    engine_mod._SessionLocal = None
-    init_db(tmp_path / "test.db")
-    yield
 
 
 def _seed(user_telegram_id: int, daily_new_limit: int, n_cards: int) -> int:
