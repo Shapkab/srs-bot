@@ -148,3 +148,36 @@ def test_export_empty_for_unknown_user() -> None:
     with session_scope() as s:
         payload = build_export_jsonl(s, user_id=999)
     assert payload == b""
+
+
+def test_export_card_row_includes_deleted_at_field() -> None:
+    """Phase 8.5: every card row must carry ``deleted_at`` (ISO 8601 or
+    null) so a soft-deleted card round-trips through /export."""
+    from src.db.models import Card
+
+    with session_scope() as s:
+        user = get_or_create_user(s, telegram_id=1, username="t", tz="UTC")
+        live = add_card(s, user, front="alive", back="a")
+        deleted = add_card(s, user, front="ghost", back="g")
+        # Soft-delete the second card.
+        marker = datetime.now(UTC).replace(microsecond=0)
+        s.scalar(select(Card).where(Card.id == deleted.id)).deleted_at = marker
+        user_id = user.id
+        live_id = live.id
+        deleted_id = deleted.id
+
+    with session_scope() as s:
+        payload = build_export_jsonl(s, user_id)
+
+    rows = [json.loads(line) for line in payload.decode("utf-8").splitlines() if line]
+    cards = {r["id"]: r for r in rows if r["type"] == "card"}
+
+    # Both cards exported even though one is soft-deleted.
+    assert set(cards) == {live_id, deleted_id}
+    assert "deleted_at" in cards[live_id]
+    assert "deleted_at" in cards[deleted_id]
+    assert cards[live_id]["deleted_at"] is None
+    # The soft-deleted card's deleted_at parses back as an aware UTC datetime.
+    parsed = datetime.fromisoformat(cards[deleted_id]["deleted_at"])
+    assert parsed.tzinfo is not None
+    assert parsed == marker

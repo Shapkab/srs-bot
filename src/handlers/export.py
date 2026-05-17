@@ -4,7 +4,8 @@ as a single JSONL document.
 JSONL schema (one object per line, UTF-8):
 
     {"type": "card",         "id": int, "owner_id": int, "front": str,
-     "back": str, "tags": str|null, "source": str, "created_at": iso8601}
+     "back": str, "tags": str|null, "source": str, "created_at": iso8601,
+     "deleted_at": iso8601|null}
 
     {"type": "review_state", "id": int, "user_id": int, "card_id": int,
      "card_json": str, "due": iso8601, "last_review": iso8601|null,
@@ -75,6 +76,7 @@ def build_export_jsonl(s: Session, user_id: int) -> bytes:
                     "tags": c.tags,
                     "source": c.source,
                     "created_at": _iso(c.created_at),
+                    "deleted_at": _iso(c.deleted_at),
                 },
                 ensure_ascii=False,
             )
