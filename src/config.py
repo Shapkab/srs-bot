@@ -6,6 +6,7 @@ Loaded once at startup. Fail fast if required vars are missing.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,12 +32,23 @@ class Settings:
     log_level: str
 
 
+_REMINDER_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+
+
+def _validated_reminder_time(raw: str) -> str:
+    if _REMINDER_TIME_RE.fullmatch(raw) is None:
+        raise RuntimeError(
+            f"REMINDER_TIME must be HH:MM in 24-hour form, got: {raw!r}"
+        )
+    return raw
+
+
 def load_settings() -> Settings:
     return Settings(
         bot_token=_required("BOT_TOKEN"),
         db_path=Path(os.getenv("DB_PATH", "srs.db")),
         owner_telegram_id=int(_required("OWNER_TELEGRAM_ID")),
         timezone=os.getenv("TZ", "UTC"),
-        reminder_time=os.getenv("REMINDER_TIME", "09:00"),
+        reminder_time=_validated_reminder_time(os.getenv("REMINDER_TIME", "09:00")),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
     )

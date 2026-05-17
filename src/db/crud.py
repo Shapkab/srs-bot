@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from src.db.models import Card, Rating, ReviewLog, ReviewState, User
@@ -72,18 +72,39 @@ def due_count(s: Session, user: User, now: datetime | None = None) -> int:
 
 def persist_review(
     s: Session, state: ReviewState, rating: Rating, result: ReviewResult
-) -> None:
+) -> bool:
     """Apply a ReviewResult to the ReviewState row and append a ReviewLog row.
 
-    Caller already opened a session_scope(); we just mutate and add.
+    Guarded by an optimistic-concurrency check on ``reps``: the UPDATE only
+    fires if the row's ``reps`` still matches what the caller saw. Returns
+    True on success and False when another concurrent click already
+    advanced the row (rowcount == 0).
+
+    Caller already opened a session_scope(); we just issue the update and add.
     """
-    state.card_json = result.card_json
-    state.due = result.due
-    state.last_review = result.last_review
-    state.state = result.new_state
-    state.reps += 1
-    if rating == Rating.AGAIN:
-        state.lapses += 1
+    expected_reps = state.reps
+    new_reps = expected_reps + 1
+    new_lapses = state.lapses + (1 if rating == Rating.AGAIN else 0)
+
+    res = s.execute(
+        update(ReviewState)
+        .where(ReviewState.id == state.id, ReviewState.reps == expected_reps)
+        .values(
+            card_json=result.card_json,
+            due=result.due,
+            last_review=result.last_review,
+            state=result.new_state,
+            reps=new_reps,
+            lapses=new_lapses,
+        )
+    )
+    if res.rowcount != 1:
+        return False
+
+    # Sync the in-memory ORM instance so callers (and tests) see the
+    # post-update values without SQLAlchemy emitting a second UPDATE on flush.
+    if state in s:
+        s.refresh(state)
 
     s.add(
         ReviewLog(
@@ -96,3 +117,4 @@ def persist_review(
             state_before=result.state_before,
         )
     )
+    return True

@@ -10,6 +10,8 @@ Flow:
 
 from __future__ import annotations
 
+import html
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
@@ -26,11 +28,14 @@ router = Router(name="review")
 
 
 def _format_front(card: Card) -> str:
-    return f"<b>{card.front}</b>"
+    return f"<b>{html.escape(card.front, quote=False)}</b>"
 
 
 def _format_front_back(card: Card) -> str:
-    return f"<b>{card.front}</b>\n\n{card.back}"
+    return (
+        f"<b>{html.escape(card.front, quote=False)}</b>\n\n"
+        f"{html.escape(card.back, quote=False)}"
+    )
 
 
 @router.message(Command("review"))
@@ -64,6 +69,11 @@ async def cb_show_answer(callback: CallbackQuery) -> None:
             return
         text = _format_front_back(state.card)
 
+    # Telegram strips .message from callbacks older than ~48h.
+    if callback.message is None:
+        await callback.answer("Session expired — run /review again.", show_alert=True)
+        return
+
     # edit_text raises if the message is unchanged; safe here because
     # we're appending the back, which is new content.
     await callback.message.edit_text(text, reply_markup=rating_kb(state_id))
@@ -88,7 +98,11 @@ async def cb_rate(callback: CallbackQuery, settings: Settings) -> None:
             prev_last_review=state.last_review,
             rating=rating,
         )
-        persist_review(s, state, rating, result)
+        applied = persist_review(s, state, rating, result)
+        if not applied:
+            # Double-tap (or other concurrent click) already advanced the row.
+            await callback.answer("Already rated.", show_alert=False)
+            return
 
         # Look up the next due card in the same transaction so the
         # user sees an uninterrupted stream.
@@ -100,6 +114,12 @@ async def cb_rate(callback: CallbackQuery, settings: Settings) -> None:
         else:
             next_state_id = None
             next_front = None
+
+    # Telegram strips .message from callbacks older than ~48h. The DB write
+    # above already happened, so we only skip the inline "next card" UI.
+    if callback.message is None:
+        await callback.answer("Session expired — run /review again.", show_alert=True)
+        return
 
     # Replace the current message with a confirmation + next card or end-of-session note.
     if next_state_id is not None:
