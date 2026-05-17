@@ -125,7 +125,7 @@ def restore_from_json(card_json: str) -> RestoredCardState:
     """
     try:
         fsrs_card = FsrsCard.from_json(card_json)
-    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+    except (json.JSONDecodeError, ValueError) as e:
         raise CorruptCardJsonError(None, e) from e
     return RestoredCardState(
         card_json=card_json,
@@ -169,7 +169,7 @@ def apply_review(
     """
     try:
         fsrs_card = FsrsCard.from_json(card_json)
-    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+    except (json.JSONDecodeError, ValueError) as e:
         raise CorruptCardJsonError(None, e) from e
     state_before_int = int(fsrs_card.state)
 
