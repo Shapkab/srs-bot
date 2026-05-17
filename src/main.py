@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -19,8 +20,9 @@ from src.config import Settings, load_settings
 from src.db.engine import init_db
 from src.handlers import add_card, cards, export, review, start, undo
 from src.handlers.middleware import OwnerOnlyMiddleware
+from src.instance_lock import InstanceAlreadyRunning, instance_lock, lock_path_for
 from src.jobs.backup import schedule_db_backup
-from src.jobs.daily_reminder import schedule_daily_reminder
+from src.jobs.daily_reminder import run_catchup_if_needed, schedule_daily_reminder
 
 
 def _build_dispatcher(settings: Settings) -> Dispatcher:
@@ -44,14 +46,7 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
     return dp
 
 
-async def main() -> None:
-    settings = load_settings()
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-    log = logging.getLogger(__name__)
-
+async def _run(settings: Settings, log: logging.Logger) -> None:
     init_db(settings.db_path)
     log.info("DB ready at %s", settings.db_path)
 
@@ -68,6 +63,9 @@ async def main() -> None:
     log.info("Scheduler started; daily reminder at %s %s", settings.reminder_time, settings.timezone)
     log.info("DB backup scheduled daily at 03:00 %s", settings.timezone)
 
+    # If we started after today's REMINDER_TIME and never fired today, do it now.
+    await run_catchup_if_needed(bot, settings)
+
     try:
         await dp.start_polling(bot)
     finally:
@@ -75,5 +73,24 @@ async def main() -> None:
         await bot.session.close()
 
 
+async def main() -> int:
+    settings = load_settings()
+    logging.basicConfig(
+        level=settings.log_level,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    log = logging.getLogger(__name__)
+
+    # Refuse to start a second instance against the same DB — two pollers
+    # would dupe messages and race on writes.
+    try:
+        with instance_lock(lock_path_for(settings.db_path)):
+            await _run(settings, log)
+    except InstanceAlreadyRunning as e:
+        log.error("%s", e)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))

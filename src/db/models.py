@@ -174,6 +174,13 @@ class ReviewState(Base):
     reps: Mapped[int] = mapped_column(Integer, default=0)
     lapses: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Leech suspension tombstone. NULL = active; non-NULL = suspended at
+    # that time (lapses crossed the leech threshold). Suspended states are
+    # excluded from next_due_card so the user is unstuck.
+    suspended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     user: Mapped["User"] = relationship(back_populates="states")
     card: Mapped["Card"] = relationship(back_populates="state")
 
@@ -215,3 +222,17 @@ class ReviewLog(Base):
     card_json_before: Mapped[str] = mapped_column(Text, default="")
 
     card: Mapped["Card"] = relationship(back_populates="logs")
+
+
+class KV(Base):
+    """Tiny one-row-per-key store for app-level scalars that don't deserve
+    a dedicated table — e.g. ``daily_reminder.last_fired``.
+
+    Intentionally minimal: TEXT primary key, TEXT value. The caller is
+    responsible for any encoding (ISO 8601, JSON, etc.).
+    """
+
+    __tablename__ = "kv"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)

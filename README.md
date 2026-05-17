@@ -23,7 +23,11 @@ A Telegram vocabulary SRS bot using FSRS 6. Single-user v1.
 - `/delete <id>` — soft-delete a card (history preserved for fsrs-optimizer)
 - `/export` — download all of your cards, review states, and review logs
   as a single JSONL file
-- Daily reminder at a configured time
+- Daily reminder at a configured time (with **catch-up** if the bot was
+  offline at REMINDER_TIME — it fires once at next startup)
+- New-card rate-limited by `User.daily_new_limit` (default 10 per UTC day)
+- Auto-suspend ("leech") after 8 lapses on the same card
+- Single-instance enforcement via POSIX flock on `<DB_PATH>.lock`
 - Daily online DB backup at 03:00 in your configured timezone (see "Backups" below)
 
 Out of scope for v1 (deliberately): LLM-generated cards, audio/TTS, web UI,
@@ -135,6 +139,16 @@ If `pytest -q` fails, paste the traceback and I'll fix it. The most
 likely failure point is `src/srs/scheduler.py` — that's the only file
 that touches `fsrs`.
 
+## Instance lock
+
+To prevent two bot processes from polling the same Telegram bot against
+the same DB, `src/main.py` acquires an exclusive POSIX `flock` on
+`<DB_PATH>.lock` at startup. If another instance already holds it, the
+second instance logs `another instance is already running` and exits
+with status 1. The lock is kernel-managed: if the holder process dies
+ungracefully, the lock is reclaimed immediately. **macOS / Linux only —
+Windows is not supported in v1.**
+
 ## Backups
 
 `src/jobs/backup.py` runs once a day at **03:00** in `settings.timezone`. It
@@ -161,6 +175,7 @@ migration scripts are bundled for existing DBs that predate Phase 3:
 ```
 python -m scripts.migrate_001_card_json_before /path/to/srs.db
 python -m scripts.migrate_002_card_deleted_at  /path/to/srs.db
+python -m scripts.migrate_003_review_state_suspended_at /path/to/srs.db
 ```
 
 Both are idempotent (no-op if the column is already present). They will
