@@ -15,9 +15,15 @@ router = Router(name="start")
 
 HELP_TEXT = (
     "<b>SRS vocabulary bot</b>\n\n"
-    "/add front | back — add a card (separate front and back with <code>|</code>)\n"
+    "/add front | back — add a card (separate with <code>|</code>)\n"
+    "/addm — add a card step-by-step\n"
     "/review — start a review session\n"
+    "/undo — undo the most recent rating (within 10 min)\n"
     "/due — how many cards are due now\n"
+    "/cards [page] — list your cards (20 per page)\n"
+    "/edit &lt;id&gt; front | back — edit a card (keeps FSRS state)\n"
+    "/delete &lt;id&gt; — delete a card (history preserved)\n"
+    "/export — download all your cards and review history as JSONL\n"
     "/help — this message"
 )
 

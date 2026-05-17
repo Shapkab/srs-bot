@@ -12,7 +12,8 @@ JSONL schema (one object per line, UTF-8):
 
     {"type": "review_log",   "id": int, "card_id": int, "user_id": int,
      "rating": int, "reviewed_at": iso8601, "elapsed_days": float,
-     "scheduled_days": float, "state_before": int}
+     "scheduled_days": float, "state_before": int,
+     "card_json_before": str}
 
 All datetimes are ISO 8601 with UTC offset. ``card_json`` is passed through
 verbatim — it is the FSRS library's own serialization and we don't touch it.
@@ -121,6 +122,7 @@ def build_export_jsonl(s: Session, user_id: int) -> bytes:
                     "elapsed_days": lg.elapsed_days,
                     "scheduled_days": lg.scheduled_days,
                     "state_before": lg.state_before,
+                    "card_json_before": lg.card_json_before,
                 },
                 ensure_ascii=False,
             )

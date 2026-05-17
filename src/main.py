@@ -12,18 +12,20 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import Settings, load_settings
 from src.db.engine import init_db
-from src.handlers import add_card, export, review, start
+from src.handlers import add_card, cards, export, review, start, undo
 from src.handlers.middleware import OwnerOnlyMiddleware
 from src.jobs.backup import schedule_db_backup
 from src.jobs.daily_reminder import schedule_daily_reminder
 
 
 def _build_dispatcher(settings: Settings) -> Dispatcher:
-    dp = Dispatcher()
+    # MemoryStorage for /addm FSM; single-process single-user is fine.
+    dp = Dispatcher(storage=MemoryStorage())
 
     # Owner-only gate (single-user v1).
     gate = OwnerOnlyMiddleware(owner_id=settings.owner_telegram_id)
@@ -37,6 +39,8 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
     dp.include_router(add_card.router)
     dp.include_router(review.router)
     dp.include_router(export.router)
+    dp.include_router(cards.router)
+    dp.include_router(undo.router)
     return dp
 
 

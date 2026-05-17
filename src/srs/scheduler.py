@@ -106,6 +106,38 @@ def new_card_state() -> NewCardState:
 
 
 @dataclass
+class RestoredCardState:
+    """Output of restoring a ReviewState from a stored card_json blob.
+
+    Used by /undo to roll a ReviewState back to its pre-review snapshot.
+    """
+
+    card_json: str
+    due: datetime
+    last_review: datetime | None
+    state: CardState
+
+
+def restore_from_json(card_json: str) -> RestoredCardState:
+    """Re-derive the denormalized ReviewState projections from a saved
+    ``card_json`` blob. Inverse of the field-write that ``persist_review``
+    performs.
+    """
+    try:
+        fsrs_card = FsrsCard.from_json(card_json)
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+        raise CorruptCardJsonError(None, e) from e
+    return RestoredCardState(
+        card_json=card_json,
+        due=_ensure_utc(fsrs_card.due),
+        last_review=(
+            _ensure_utc(fsrs_card.last_review) if fsrs_card.last_review else None
+        ),
+        state=_STATE_FROM_FSRS[fsrs_card.state],
+    )
+
+
+@dataclass
 class ReviewResult:
     """Output of a single review, ready to persist."""
 

@@ -125,6 +125,13 @@ class Card(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    # Soft-delete tombstone. NULL = live; non-NULL = deleted at that time.
+    # Kept instead of a hard DELETE so ReviewLog history (used later by
+    # fsrs-optimizer) is preserved.
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     owner: Mapped["User"] = relationship(back_populates="cards")
     state: Mapped["ReviewState"] = relationship(
         back_populates="card", cascade="all, delete-orphan", uselist=False
@@ -201,5 +208,10 @@ class ReviewLog(Base):
     # The FSRS lifecycle state the card was in at review time. Stored as
     # raw int so an enum rename in py-fsrs doesn't break old rows.
     state_before: Mapped[int] = mapped_column(Integer)
+
+    # Snapshot of ReviewState.card_json BEFORE this review took place. Used
+    # by /undo to restore the pre-review FSRS state. Empty string for rows
+    # written by code older than this column (see scripts/migrate_001_*).
+    card_json_before: Mapped[str] = mapped_column(Text, default="")
 
     card: Mapped["Card"] = relationship(back_populates="logs")

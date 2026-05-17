@@ -51,11 +51,19 @@ def add_card(
 
 
 def next_due_card(s: Session, user: User, now: datetime | None = None) -> Optional[ReviewState]:
-    """Return the next ReviewState whose card is due, oldest-due first."""
+    """Return the next ReviewState whose card is due, oldest-due first.
+
+    Soft-deleted cards (``Card.deleted_at IS NOT NULL``) are excluded.
+    """
     now = now or datetime.now(timezone.utc)
     stmt = (
         select(ReviewState)
-        .where(ReviewState.user_id == user.id, ReviewState.due <= now)
+        .join(Card, ReviewState.card_id == Card.id)
+        .where(
+            ReviewState.user_id == user.id,
+            ReviewState.due <= now,
+            Card.deleted_at.is_(None),
+        )
         .order_by(ReviewState.due.asc())
         .limit(1)
     )
@@ -64,8 +72,15 @@ def next_due_card(s: Session, user: User, now: datetime | None = None) -> Option
 
 def due_count(s: Session, user: User, now: datetime | None = None) -> int:
     now = now or datetime.now(timezone.utc)
-    stmt = select(func.count()).select_from(ReviewState).where(
-        ReviewState.user_id == user.id, ReviewState.due <= now
+    stmt = (
+        select(func.count())
+        .select_from(ReviewState)
+        .join(Card, ReviewState.card_id == Card.id)
+        .where(
+            ReviewState.user_id == user.id,
+            ReviewState.due <= now,
+            Card.deleted_at.is_(None),
+        )
     )
     return s.scalar(stmt) or 0
 
@@ -83,6 +98,8 @@ def persist_review(
     Caller already opened a session_scope(); we just issue the update and add.
     """
     expected_reps = state.reps
+    # Snapshot card_json before the update so /undo can restore it.
+    card_json_before = state.card_json
     new_reps = expected_reps + 1
     new_lapses = state.lapses + (1 if rating == Rating.AGAIN else 0)
 
@@ -115,6 +132,7 @@ def persist_review(
             elapsed_days=result.elapsed_days,
             scheduled_days=result.scheduled_days,
             state_before=result.state_before,
+            card_json_before=card_json_before,
         )
     )
     return True

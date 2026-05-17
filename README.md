@@ -14,8 +14,13 @@ A Telegram vocabulary SRS bot using FSRS 6. Single-user v1.
 ## What this v1 does
 
 - `/start`, `/help`, `/due`
-- `/add front | back` — add a card
+- `/add front | back` — add a card (one-shot)
+- `/addm` — add a card step-by-step (FSM with front → back → optional tags)
 - `/review` — review due cards, rate Again/Hard/Good/Easy, FSRS reschedules
+- `/undo` — roll back the most recent rating (within 10 minutes)
+- `/cards [page]` — list your cards, 20 per page
+- `/edit <id> front | back` — edit a card without resetting FSRS state
+- `/delete <id>` — soft-delete a card (history preserved for fsrs-optimizer)
 - `/export` — download all of your cards, review states, and review logs
   as a single JSONL file
 - Daily reminder at a configured time
@@ -150,8 +155,16 @@ configurable in v1.
 
 ## Migrations
 
-v1 uses `Base.metadata.create_all()`. Add Alembic before the first
-breaking schema change. Not before.
+v1 uses `Base.metadata.create_all()` for fresh installs. Two one-shot
+migration scripts are bundled for existing DBs that predate Phase 3:
+
+```
+python -m scripts.migrate_001_card_json_before /path/to/srs.db
+python -m scripts.migrate_002_card_deleted_at  /path/to/srs.db
+```
+
+Both are idempotent (no-op if the column is already present). They will
+be re-expressed as Alembic revisions in a later iteration.
 
 ## Scale path (notes, not promises)
 
