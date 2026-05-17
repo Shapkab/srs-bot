@@ -78,22 +78,31 @@ def run_backup(db_path: Path, now: datetime | None = None) -> Path:
 
 
 def prune_backups(db_path: Path, retention: int = RETENTION) -> list[Path]:
-    """Delete all but the ``retention`` most recent ``srs-*.db`` backups.
+    """Delete all but the ``retention`` most-recent ``srs-*.db`` backups.
 
-    Returns the list of deleted .db paths (without -wal/-shm siblings).
-    Ordering is by filename (date in name) — equivalent to mtime ordering
-    for our naming scheme and stable in tests.
+    Ordering is by ``Path.stat().st_mtime`` — the actual creation time —
+    rather than the YYYYMMDD chunk in the filename. That matters when
+    two backups share the same date filename (e.g. a re-run on the same
+    UTC day, or a manual backup), since the newer one's mtime correctly
+    wins regardless of filename.
+
+    Returns the list of deleted ``.db`` paths. Sibling ``-wal`` /
+    ``-shm`` files are removed alongside.
     """
     backup_dir = _backup_dir(db_path)
     if not backup_dir.exists():
         return []
 
-    backups = sorted(backup_dir.glob("srs-*.db"))
+    backups = list(backup_dir.glob("srs-*.db"))
     if len(backups) <= retention:
         return []
 
+    # Newest first by mtime; ties broken by name for determinism.
+    backups.sort(key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+    to_delete = backups[retention:]
+
     deleted: list[Path] = []
-    for old in backups[:-retention]:
+    for old in to_delete:
         for suffix in ("", "-wal", "-shm"):
             sibling = old.with_name(old.name + suffix) if suffix else old
             if sibling.exists():
