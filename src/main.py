@@ -18,11 +18,12 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import Settings, load_settings
 from src.db.engine import init_db
-from src.handlers import add_card, cards, export, review, start, undo
+from src.handlers import add_card, cards, export, review, start, stats, undo
 from src.handlers.middleware import OwnerOnlyMiddleware
 from src.instance_lock import InstanceAlreadyRunning, instance_lock, lock_path_for
 from src.jobs.backup import schedule_db_backup
 from src.jobs.daily_reminder import run_catchup_if_needed, schedule_daily_reminder
+from src.logging_setup import configure_logging
 
 
 def _build_dispatcher(settings: Settings) -> Dispatcher:
@@ -43,6 +44,7 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
     dp.include_router(export.router)
     dp.include_router(cards.router)
     dp.include_router(undo.router)
+    dp.include_router(stats.router)
     return dp
 
 
@@ -75,10 +77,7 @@ async def _run(settings: Settings, log: logging.Logger) -> None:
 
 async def main() -> int:
     settings = load_settings()
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    configure_logging(settings.log_level)
     log = logging.getLogger(__name__)
 
     # Refuse to start a second instance against the same DB — two pollers

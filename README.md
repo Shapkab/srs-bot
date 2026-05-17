@@ -23,6 +23,8 @@ A Telegram vocabulary SRS bot using FSRS 6. Single-user v1.
 - `/delete <id>` — soft-delete a card (history preserved for fsrs-optimizer)
 - `/export` — download all of your cards, review states, and review logs
   as a single JSONL file
+- `/stats` — total cards, due now, learning/review/relearning split,
+  reviews in last 7 days, retention rate over last 30 days
 - Daily reminder at a configured time (with **catch-up** if the bot was
   offline at REMINDER_TIME — it fires once at next startup)
 - New-card rate-limited by `User.daily_new_limit` (default 10 per UTC day)
@@ -138,6 +140,16 @@ not been executed against the live library. Things to know:
 If `pytest -q` fails, paste the traceback and I'll fix it. The most
 likely failure point is `src/srs/scheduler.py` — that's the only file
 that touches `fsrs`.
+
+## Logging
+
+All log records are emitted as single-line JSON via the stdlib `logging`
+module (no external dep). Each record has `ts`, `level`, `logger`,
+`msg`; structured fields like `event`, `user_id`, `card_id` are added
+when handlers pass them via `extra={...}`. Non-owner Telegram updates
+are dropped silently to the sender but logged at INFO with the
+offending `user_id` so probing is visible in `journalctl` / your log
+aggregator.
 
 ## Instance lock
 
