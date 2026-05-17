@@ -167,3 +167,33 @@ def test_handoff_is_idempotent(tmp_path: Path) -> None:
     alembic_upgrade(_alembic_config(db_path), "head")
 
     assert _alembic_version(db_path) == "0004"
+
+
+def test_init_db_runs_alembic_to_head(tmp_path: Path) -> None:
+    """Phase 7.2: src/db/engine.py:init_db() must run Alembic migrations
+    instead of Base.metadata.create_all, so startup is self-healing on
+    legacy and fresh DBs alike.
+    """
+    from src.db.engine import init_db
+
+    db_path = tmp_path / "startup.db"
+    init_db(db_path)
+
+    # After init_db, the DB must be at head and have the full schema.
+    assert _alembic_version(db_path) == "0004"
+    assert "card_json_before" in _table_columns(db_path, "review_log")
+    assert "deleted_at" in _table_columns(db_path, "card")
+    assert "suspended_at" in _table_columns(db_path, "review_state")
+
+
+def test_init_db_handles_legacy_user_version_one(tmp_path: Path) -> None:
+    """Phase 7.2 + 7.1: init_db() on a legacy DB stamps then upgrades."""
+    from src.db.engine import init_db
+
+    db_path = tmp_path / "legacy_startup.db"
+    _apply_baseline_schema(db_path)
+
+    init_db(db_path)
+
+    assert _alembic_version(db_path) == "0004"
+    assert "card_json_before" in _table_columns(db_path, "review_log")

@@ -15,7 +15,9 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.db.models import Base
+# Project root containing alembic.ini. We resolve it at import time so
+# init_db doesn't have to rediscover it on every call.
+_ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 
 
 def _build_engine(db_path: Path) -> Engine:
@@ -41,17 +43,23 @@ _SessionLocal: sessionmaker[Session] | None = None
 
 
 def init_db(db_path: Path) -> None:
-    """Create the engine, session factory, and tables if missing.
-
-    Idempotent. Call once at startup.
-    For schema changes, add Alembic later — v1 uses create_all only.
-    """
+    """Run Alembic migrations to head."""
     global _engine, _SessionLocal
     _engine = _build_engine(db_path)
     _SessionLocal = sessionmaker(
         bind=_engine, autoflush=False, autocommit=False, expire_on_commit=False
     )
-    Base.metadata.create_all(_engine)
+
+    # Self-healing migration: fresh DBs get baselined, legacy DBs are
+    # picked up via the PRAGMA user_version handoff in migrations/env.py,
+    # partially-migrated DBs are brought to head. Imported lazily so the
+    # alembic dependency isn't loaded just for import-side-effects.
+    from alembic.command import upgrade as _alembic_upgrade
+    from alembic.config import Config as _AlembicConfig
+
+    cfg = _AlembicConfig(str(_ALEMBIC_INI))
+    cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    _alembic_upgrade(cfg, "head")
 
 
 @contextmanager
