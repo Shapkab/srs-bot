@@ -1,0 +1,32 @@
+# Secrets and local DB state — never bake into images. *.db-* matches
+# the WAL/SHM siblings (srs.db-wal); .lock uses a dot and is its own.
+.env
+*.db
+*.db-*
+*.db.lock
+
+# Card-attached image bytes (one file per sha256). Lives at IMAGE_DIR
+# on the persistent volume in production; never bake into the image.
+images/
+
+# Python caches and editable-install metadata.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs.
+.venv/
+venv/
+
+# VCS and editor/OS junk.
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Tests are not needed at runtime.
+tests/

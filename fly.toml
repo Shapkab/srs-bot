@@ -1,0 +1,38 @@
+# srs-bot — Fly.io configuration.
+#
+# Single-user Telegram polling bot. No inbound HTTP surface.
+# SQLite lives on a persistent Fly volume mounted at /data; the entire
+# data layer is one file (plus its WAL/SHM siblings).
+
+app = "srs-bot-shapka"
+primary_region = "mia"
+
+[build]
+
+# Non-secret runtime environment. Secrets (BOT_TOKEN, OWNER_TELEGRAM_ID)
+# are kept out of this file and set via `fly secrets set` — see
+# DEPLOY.md. Edit anything below and `fly deploy` to apply.
+[env]
+  DB_PATH = "/data/srs.db"
+  IMAGE_DIR = "/data/images"
+  TZ = "Europe/Sofia"
+  REMINDER_TIME = "09:00"
+  LOG_LEVEL = "INFO"
+
+# Persistent SQLite home. Created once with:
+#   fly volumes create srs_data --region mia --size 1
+# WAL/SHM siblings + the bot's own daily snapshots in /data/backups all
+# live on this volume.
+[[mounts]]
+  source = "srs_data"
+  destination = "/data"
+
+# Smallest always-on tier; sufficient for single-user polling.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# Note: no [http_service] / [[services]] blocks. Fly's auto_stop /
+# auto_start behaviour lives inside those, so omitting them yields an
+# always-on machine. `fly scale count 1 --region mia` (run once after
+# the first deploy) makes the single-machine intent explicit.
