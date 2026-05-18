@@ -3,6 +3,10 @@
 *.db-journal
 *.db-wal
 *.db-shm
+*.db.lock
+
+# Card-attached image bytes (one file per sha256). Lives at IMAGE_DIR.
+images/
 
 __pycache__/
 *.py[cod]
