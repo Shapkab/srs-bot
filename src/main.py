@@ -53,6 +53,9 @@ async def _run(settings: Settings, log: logging.Logger) -> None:
     init_db(settings.db_path)
     log.info("DB ready at %s", settings.db_path)
 
+    settings.image_dir.mkdir(parents=True, exist_ok=True)
+    log.info("Image dir ready at %s", settings.image_dir)
+
     bot = Bot(
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),

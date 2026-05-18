@@ -131,6 +131,17 @@ class Card(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Optional image attachments. file_id is the Telegram-issued handle —
+    # cheap to send but invalidated when the bot token changes. sha256 is
+    # the content-addressed identifier of the local copy under IMAGE_DIR,
+    # used by scripts/reupload_images.py to re-issue a fresh file_id
+    # after a token rotation. Both halves are kept in lock-step: if one
+    # is set, so is the other.
+    front_image_file_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    front_image_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    back_image_file_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    back_image_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     owner: Mapped[User] = relationship(back_populates="cards")
     state: Mapped[ReviewState] = relationship(
         back_populates="card", cascade="all, delete-orphan", uselist=False

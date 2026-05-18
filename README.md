@@ -27,6 +27,8 @@ A Telegram vocabulary SRS bot using FSRS 6. Single-user v1.
   reviews in last 7 days, retention rate over last 30 days
 - `/repair` — sweep all live cards and soft-delete any whose FSRS state
   no longer parses (paired with the `cb_rate` corrupt-card guard)
+- `/addimage` — add a card whose front and/or back is a photo (with an
+  optional caption); see "Image cards" below
 - Daily reminder at a configured time (with **catch-up** if the bot was
   offline at REMINDER_TIME — it fires once at next startup)
 - New-card rate-limited by `User.daily_new_limit` (default 10 per UTC day)
@@ -195,6 +197,50 @@ The four revisions in `migrations/versions/` are:
 in place. The env script stamps `alembic_version` at revision `0001`
 without re-running `CREATE TABLE`, then lets `0002 → 0004` apply
 normally. Fresh DBs (`user_version == 0`) run the whole chain.
+
+## Image cards
+
+`/addimage` opens a two-step prompt (front, then back). Each side
+accepts either:
+
+- a **photo** (with an optional caption used as the text), or
+- a **plain text** message.
+
+So you can have text-front + photo-back, photo-front + text-back,
+photo-front + photo-back, or all text (which behaves identically to
+`/add`). Send `/cancel` at any point to back out.
+
+When a card has any image attachment, `/review` renders that side as a
+Telegram photo with the text as its caption. Pure-text cards keep the
+existing edit-in-place flow.
+
+### Storage
+
+Each image is downloaded once and written to
+`<IMAGE_DIR>/<sha256>.jpg` (set `IMAGE_DIR` in `.env`; default
+`./images`, the Fly deployment uses `/data/images` on the persistent
+volume). Identical bytes dedupe automatically — the filename is the
+content hash, so uploading the same photo to two cards costs one file
+on disk.
+
+On every card row, `front_image_sha256` / `back_image_sha256` are the
+content-addressed identifiers, and `front_image_file_id` /
+`back_image_file_id` are the matching Telegram-issued handles that the
+bot uses to re-send the photo cheaply.
+
+### Token rotation
+
+Telegram **invalidates every `file_id` when the bot token changes**.
+After a token rotation, run:
+
+```bash
+python -m scripts.reupload_images           # do it
+python -m scripts.reupload_images --dry-run # list first
+```
+
+The script reads each image from `IMAGE_DIR`, re-uploads it through
+the new token, captures the fresh `file_id`, and writes it back. One
+DB transaction per image so a crash mid-run loses at most one entry.
 
 ## FSRS parameter optimization
 

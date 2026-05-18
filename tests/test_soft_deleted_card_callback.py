@@ -29,6 +29,7 @@ def _settings() -> Settings:
         timezone="UTC",
         reminder_time=time(9, 0),
         log_level="INFO",
+        image_dir=Path("/tmp/test-images"),
     )
 
 

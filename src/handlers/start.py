@@ -17,6 +17,7 @@ HELP_TEXT = (
     "<b>SRS vocabulary bot</b>\n\n"
     "/add front | back — add a card (separate with <code>|</code>)\n"
     "/addm — add a card step-by-step\n"
+    "/addimage — add a card whose front/back can be a photo\n"
     "/review — start a review session\n"
     "/undo — undo the most recent rating (within 10 min)\n"
     "/due — how many cards are due now\n"

@@ -36,8 +36,22 @@ def add_card(
     back: str,
     tags: str | None = None,
     source: str = "manual",
+    front_image_file_id: str | None = None,
+    front_image_sha256: str | None = None,
+    back_image_file_id: str | None = None,
+    back_image_sha256: str | None = None,
 ) -> Card:
-    card = Card(owner_id=user.id, front=front, back=back, tags=tags, source=source)
+    card = Card(
+        owner_id=user.id,
+        front=front,
+        back=back,
+        tags=tags,
+        source=source,
+        front_image_file_id=front_image_file_id,
+        front_image_sha256=front_image_sha256,
+        back_image_file_id=back_image_file_id,
+        back_image_sha256=back_image_sha256,
+    )
     s.add(card)
     s.flush()
 
