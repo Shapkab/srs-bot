@@ -5,16 +5,30 @@ This is the regression we'd want if anyone touched the migration chain.
 We don't compare SQL DDL byte-for-byte — alembic uses ``server_default``
 where the models use Python-side ``default=``, so the columns line up
 even though the raw CREATE TABLE strings don't.
+
+Both paths run in-process via their respective Python APIs — no
+subprocess + ``DB_PATH`` env-var coupling (removed in Phase 8.10) — so
+each side of the comparison is unambiguous about which DB it targets.
 """
 
 from __future__ import annotations
 
 import sqlite3
-import subprocess
-import sys
 from pathlib import Path
 
-import pytest
+from alembic.command import upgrade as alembic_upgrade
+from alembic.config import Config
+from sqlalchemy import create_engine
+
+from src.db.models import Base
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _alembic_config(db_path: Path) -> Config:
+    cfg = Config(str(REPO_ROOT / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    return cfg
 
 
 def _dump_schema(db_path: Path) -> dict[str, list[tuple[str, str, bool]]]:
@@ -42,46 +56,20 @@ def _dump_schema(db_path: Path) -> dict[str, list[tuple[str, str, bool]]]:
 
 
 def test_alembic_upgrade_head_matches_create_all(tmp_path: Path) -> None:
-    repo_root = Path(__file__).resolve().parent.parent
-
     # ALEMBIC PATH ---------------------------------------------------------
     alembic_db = tmp_path / "alembic.db"
-    env = {
-        "DB_PATH": str(alembic_db),
-        # Pass the host PATH through so alembic can find python.
-        "PATH": __import__("os").environ.get("PATH", ""),
-    }
-    res = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=str(repo_root),
-        env={**__import__("os").environ, **env},
-        capture_output=True,
-        text=True,
-    )
-    if res.returncode != 0:
-        pytest.fail(
-            f"alembic upgrade head failed:\nstdout:\n{res.stdout}\nstderr:\n{res.stderr}"
-        )
+    alembic_upgrade(_alembic_config(alembic_db), "head")
     alembic_schema = _dump_schema(alembic_db)
 
     # CREATE_ALL PATH ------------------------------------------------------
-    # Use a separate process so the test's own session-scoped engine isn't
-    # disturbed. We invoke a tiny snippet via python -c.
+    # Use a freshly-constructed engine so we don't disturb the
+    # module-level engine that the autouse ``fresh_db`` fixture wired up.
     create_all_db = tmp_path / "create_all.db"
-    snippet = (
-        "from pathlib import Path;"
-        "from src.db.engine import init_db;"
-        f"init_db(Path('{create_all_db}'))"
-    )
-    res = subprocess.run(
-        [sys.executable, "-c", snippet],
-        cwd=str(repo_root),
-        env={**__import__("os").environ},
-        capture_output=True,
-        text=True,
-    )
-    if res.returncode != 0:
-        pytest.fail(f"create_all failed:\nstderr:\n{res.stderr}")
+    engine = create_engine(f"sqlite:///{create_all_db}")
+    try:
+        Base.metadata.create_all(engine)
+    finally:
+        engine.dispose()
     create_all_schema = _dump_schema(create_all_db)
 
     # COMPARE --------------------------------------------------------------

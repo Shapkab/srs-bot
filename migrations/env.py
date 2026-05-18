@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -22,12 +21,6 @@ from src.db.models import Base  # noqa: E402
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-
-# Allow `DB_PATH=/some/where.db alembic upgrade head` to override the URL
-# without editing alembic.ini.
-_db_path = os.getenv("DB_PATH")
-if _db_path:
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{_db_path}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
