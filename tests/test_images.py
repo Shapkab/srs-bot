@@ -28,6 +28,17 @@ from src.db.models import Card
 from src.handlers.add_card import _download_and_hash, _finalize_image
 from src.utils.image_store import sha256_hex, store_bytes
 
+
+@pytest.fixture(autouse=True)
+def _stub_pronunciation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """/addimage card creation blocks on OpenAI IPA generation — stub it
+    so these tests never touch the network."""
+    monkeypatch.setattr(
+        "src.handlers.add_card.generate_pronunciation",
+        lambda text, api_key, **kw: f"/{text}/",
+    )
+
+
 # A tiny "image" body — content doesn't matter, only that hashing /
 # round-tripping behaves.
 _FAKE_JPEG = b"\xff\xd8\xff\xe0" + b"hello-srs-bot-test-image" * 16

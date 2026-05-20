@@ -23,10 +23,15 @@ from src.config import Settings
 from src.db.crud import add_card, get_or_create_user
 from src.db.engine import session_scope
 from src.utils.image_store import store_bytes
+from src.utils.pronunciation import generate_pronunciation
 
 log = logging.getLogger(__name__)
 
 router = Router(name="add_card")
+
+# Shown whenever IPA generation fails after all retries. Card creation
+# is blocked on success, so the user simply retries.
+_PRONUNCIATION_FAIL_MSG = "Failed to generate pronunciation. Please try again."
 
 
 class AddCardFSM(StatesGroup):
@@ -53,6 +58,15 @@ async def cmd_add(message: Message, settings: Settings) -> None:
         await message.answer("Both front and back are required.")
         return
 
+    # Block card creation on pronunciation: generate IPA first, abort
+    # the /add entirely if OpenAI fails after its retries.
+    try:
+        ipa = generate_pronunciation(front, settings.openai_api_key)
+    except Exception:
+        log.warning("pronunciation failed for /add", exc_info=True)
+        await message.answer(_PRONUNCIATION_FAIL_MSG)
+        return
+
     with session_scope() as s:
         user = get_or_create_user(
             s,
@@ -60,7 +74,7 @@ async def cmd_add(message: Message, settings: Settings) -> None:
             username=message.from_user.username,
             tz=settings.timezone,
         )
-        card = add_card(s, user, front=front, back=back)
+        card = add_card(s, user, front=front, back=back, front_pronunciation=ipa)
         card_id = card.id
 
     await message.answer(f"Added card #{card_id}. It will appear in your next /review.")
@@ -135,6 +149,13 @@ async def _finalize(
         await message.answer("Lost the in-progress card. Start again with /addm.")
         return
 
+    try:
+        ipa = generate_pronunciation(front, settings.openai_api_key)
+    except Exception:
+        log.warning("pronunciation failed for /addm", exc_info=True)
+        await message.answer(_PRONUNCIATION_FAIL_MSG)
+        return
+
     with session_scope() as s:
         user = get_or_create_user(
             s,
@@ -142,7 +163,9 @@ async def _finalize(
             username=message.from_user.username,
             tz=settings.timezone,
         )
-        card = add_card(s, user, front=front, back=back, tags=tags)
+        card = add_card(
+            s, user, front=front, back=back, tags=tags, front_pronunciation=ipa
+        )
         card_id = card.id
 
     await message.answer(
@@ -323,6 +346,16 @@ async def _finalize_image(
         )
         return
 
+    # Block card creation on pronunciation. The image bytes already
+    # landed under IMAGE_DIR — that's harmless (content-addressed, reused
+    # if re-uploaded); the card simply isn't created on failure.
+    try:
+        ipa = generate_pronunciation(front_text, settings.openai_api_key)
+    except Exception:
+        log.warning("pronunciation failed for /addimage", exc_info=True)
+        await message.answer(_PRONUNCIATION_FAIL_MSG)
+        return
+
     with session_scope() as s:
         user = get_or_create_user(
             s,
@@ -333,6 +366,7 @@ async def _finalize_image(
         card = add_card(
             s, user,
             front=front_text, back=back_text,
+            front_pronunciation=ipa,
             front_image_file_id=front_file_id, front_image_sha256=front_sha,
             back_image_file_id=back_file_id, back_image_sha256=back_sha,
         )

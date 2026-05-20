@@ -10,6 +10,7 @@ from datetime import time
 from pathlib import Path
 from unittest.mock import AsyncMock
 
+import pytest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -27,6 +28,16 @@ from src.handlers.add_card import (
     cmd_addm_start,
     cmd_addm_tags,
 )
+
+
+@pytest.fixture(autouse=True)
+def _stub_pronunciation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Card creation now blocks on OpenAI IPA generation. Stub it so the
+    FSM tests never touch the network."""
+    monkeypatch.setattr(
+        "src.handlers.add_card.generate_pronunciation",
+        lambda text, api_key, **kw: f"/{text}/",
+    )
 
 
 def _settings() -> Settings:

@@ -47,7 +47,11 @@ _PHOTO_CAPTION_MAX = 1000
 
 
 def _format_front(card: Card) -> str:
-    return f"<b>{html.escape(card.front, quote=False)}</b>"
+    front = html.escape(card.front, quote=False)
+    if card.front_pronunciation:
+        ipa = html.escape(card.front_pronunciation, quote=False)
+        return f"<b>{front}</b>\n───\n{ipa}"
+    return f"<b>{front}</b>"
 
 
 def _format_front_back(card: Card) -> str:

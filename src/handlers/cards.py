@@ -12,6 +12,7 @@ want) survive a card removal. Filtering of deleted cards happens in
 from __future__ import annotations
 
 import html
+import logging
 from datetime import UTC, datetime
 
 from aiogram import Router
@@ -23,6 +24,9 @@ from src.config import Settings
 from src.db.crud import get_or_create_user
 from src.db.engine import session_scope
 from src.db.models import Card
+from src.utils.pronunciation import generate_pronunciation
+
+log = logging.getLogger(__name__)
 
 router = Router(name="cards")
 
@@ -126,10 +130,29 @@ async def cmd_edit(message: Message, command: CommandObject, settings: Settings)
             await message.answer(f"Card #{card_id} not found.")
             return
 
+        front_changed = card.front != front
         card.front = front
         card.back = back
 
-    await message.answer(f"Card #{card_id} updated.")
+        # Regenerate IPA only when the front text actually changed. A
+        # failure here does NOT block the edit — front/back are already
+        # updated; we just warn that the pronunciation is now stale.
+        pronunciation_failed = False
+        if front_changed:
+            try:
+                card.front_pronunciation = generate_pronunciation(
+                    front, settings.openai_api_key
+                )
+            except Exception:
+                log.warning("pronunciation regeneration failed for /edit", exc_info=True)
+                pronunciation_failed = True
+
+    if pronunciation_failed:
+        await message.answer(
+            f"Card #{card_id} updated, but pronunciation regeneration failed."
+        )
+    else:
+        await message.answer(f"Card #{card_id} updated.")
 
 
 @router.message(Command("delete"))

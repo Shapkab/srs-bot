@@ -20,6 +20,8 @@ dependencies = [
     # runtime dep, not dev-only. Manual invocation still works:
     # `DB_PATH=... alembic upgrade head`.
     "alembic>=1.13",
+    # OpenAI generates IPA pronunciation for card fronts (gpt-4o-mini).
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]

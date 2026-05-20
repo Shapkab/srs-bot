@@ -128,7 +128,7 @@ def test_handoff_from_legacy_pragma_user_version_one(tmp_path: Path) -> None:
     alembic_upgrade(_alembic_config(db_path), "head")
 
     # All four revisions applied; alembic_version at head.
-    assert _alembic_version(db_path) == "0006"
+    assert _alembic_version(db_path) == "0007"
 
     # The columns added by 0002 / 0003 / 0004 are now present.
     assert "card_json_before" in _table_columns(db_path, "review_log")
@@ -150,7 +150,7 @@ def test_fresh_db_user_version_zero_runs_full_chain(tmp_path: Path) -> None:
     # Don't create anything; alembic upgrade head must build from scratch.
     alembic_upgrade(_alembic_config(db_path), "head")
 
-    assert _alembic_version(db_path) == "0006"
+    assert _alembic_version(db_path) == "0007"
     assert "card_json_before" in _table_columns(db_path, "review_log")
     assert "deleted_at" in _table_columns(db_path, "card")
     assert "suspended_at" in _table_columns(db_path, "review_state")
@@ -166,7 +166,7 @@ def test_handoff_is_idempotent(tmp_path: Path) -> None:
     alembic_upgrade(_alembic_config(db_path), "head")
     alembic_upgrade(_alembic_config(db_path), "head")
 
-    assert _alembic_version(db_path) == "0006"
+    assert _alembic_version(db_path) == "0007"
 
 
 def test_init_db_runs_alembic_to_head(tmp_path: Path) -> None:
@@ -180,7 +180,7 @@ def test_init_db_runs_alembic_to_head(tmp_path: Path) -> None:
     init_db(db_path)
 
     # After init_db, the DB must be at head and have the full schema.
-    assert _alembic_version(db_path) == "0006"
+    assert _alembic_version(db_path) == "0007"
     assert "card_json_before" in _table_columns(db_path, "review_log")
     assert "deleted_at" in _table_columns(db_path, "card")
     assert "suspended_at" in _table_columns(db_path, "review_state")
@@ -195,7 +195,7 @@ def test_init_db_handles_legacy_user_version_one(tmp_path: Path) -> None:
 
     init_db(db_path)
 
-    assert _alembic_version(db_path) == "0006"
+    assert _alembic_version(db_path) == "0007"
     assert "card_json_before" in _table_columns(db_path, "review_log")
 
 
@@ -228,3 +228,11 @@ def test_migration_0006_adds_reminder_columns(tmp_path: Path) -> None:
         "reminder_threshold",
         "last_reminder_sent_at",
     }.issubset(cols)
+
+
+def test_migration_0007_adds_pronunciation_column(tmp_path: Path) -> None:
+    """Revision 0007 must add front_pronunciation to the card table."""
+    db_path = tmp_path / "pronunciation_schema.db"
+    alembic_upgrade(_alembic_config(db_path), "head")
+
+    assert "front_pronunciation" in _table_columns(db_path, "card")

@@ -12,6 +12,7 @@ from src.config import load_settings
 def _set_required_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BOT_TOKEN", "x")
     monkeypatch.setenv("OWNER_TELEGRAM_ID", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
 
 @pytest.mark.parametrize(

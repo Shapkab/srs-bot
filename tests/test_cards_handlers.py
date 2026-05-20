@@ -12,6 +12,7 @@ from datetime import time
 from pathlib import Path
 from unittest.mock import AsyncMock
 
+import pytest
 from sqlalchemy import select
 
 from src.config import Settings
@@ -19,6 +20,16 @@ from src.db.crud import add_card, get_or_create_user
 from src.db.engine import session_scope
 from src.db.models import Card, ReviewState
 from src.handlers.cards import PAGE_SIZE, cmd_cards, cmd_delete, cmd_edit
+
+
+@pytest.fixture(autouse=True)
+def _stub_pronunciation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """/edit regenerates IPA via OpenAI when the front changes — stub it
+    so these tests never touch the network."""
+    monkeypatch.setattr(
+        "src.handlers.cards.generate_pronunciation",
+        lambda text, api_key, **kw: f"/{text}/",
+    )
 
 
 def _settings() -> Settings:

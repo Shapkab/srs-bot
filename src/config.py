@@ -43,6 +43,10 @@ class Settings:
     # Set to /data/images in the Fly deployment so it sits on the
     # persistent volume alongside the SQLite DB.
     image_dir: Path
+    # OpenAI key for IPA pronunciation generation (gpt-4o-mini). The
+    # dataclass default keeps test construction simple; load_settings()
+    # enforces it via _required so the bot won't start without it.
+    openai_api_key: str = ""
     # Hard cap on per-image bytes. Configurable via MAX_IMAGE_BYTES env
     # var; defaulted to 5 MB which is plenty for vocabulary screenshots
     # and well below Telegram's 10 MB photo cap.
@@ -91,5 +95,6 @@ def load_settings() -> Settings:
         reminder_time=_validated_reminder_time(os.getenv("REMINDER_TIME", "09:00")),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         image_dir=_resolved_image_dir(os.getenv("IMAGE_DIR", "./images")),
+        openai_api_key=_required("OPENAI_API_KEY"),
         max_image_bytes=_validated_max_image_bytes(os.getenv("MAX_IMAGE_BYTES")),
     )
