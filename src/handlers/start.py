@@ -27,6 +27,7 @@ HELP_TEXT = (
     "/export — download all your cards and review history as JSONL\n"
     "/stats — summary numbers (totals, due, retention)\n"
     "/repair — soft-delete cards whose FSRS state is unreadable\n"
+    "/remind — smart reminders when cards pile up (on/off/threshold)\n"
     "/help — this message"
 )
 

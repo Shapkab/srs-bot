@@ -18,11 +18,22 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import Settings, load_settings
 from src.db.engine import init_db
-from src.handlers import add_card, cards, export, repair, review, start, stats, undo
+from src.handlers import (
+    add_card,
+    cards,
+    export,
+    remind,
+    repair,
+    review,
+    start,
+    stats,
+    undo,
+)
 from src.handlers.middleware import OwnerOnlyMiddleware
 from src.instance_lock import InstanceAlreadyRunning, instance_lock, lock_path_for
 from src.jobs.backup import schedule_db_backup
 from src.jobs.daily_reminder import run_catchup_if_needed, schedule_daily_reminder
+from src.jobs.smart_reminder import schedule_smart_reminder
 from src.logging_setup import configure_logging
 
 
@@ -46,6 +57,7 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
     dp.include_router(undo.router)
     dp.include_router(stats.router)
     dp.include_router(repair.router)
+    dp.include_router(remind.router)
     return dp
 
 
@@ -64,6 +76,7 @@ async def _run(settings: Settings, log: logging.Logger) -> None:
 
     scheduler = AsyncIOScheduler(timezone=settings.timezone)
     schedule_daily_reminder(scheduler, bot, settings)
+    schedule_smart_reminder(scheduler, bot, settings)
     schedule_db_backup(scheduler, settings)
     scheduler.start()
     log.info(
@@ -71,6 +84,7 @@ async def _run(settings: Settings, log: logging.Logger) -> None:
         settings.reminder_time.strftime("%H:%M"),
         settings.timezone,
     )
+    log.info("Smart reminder scheduled hourly %s", settings.timezone)
     log.info("DB backup scheduled daily at 03:00 %s", settings.timezone)
 
     # If we started after today's REMINDER_TIME and never fired today, do it now.

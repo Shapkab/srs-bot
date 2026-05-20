@@ -128,7 +128,7 @@ def test_handoff_from_legacy_pragma_user_version_one(tmp_path: Path) -> None:
     alembic_upgrade(_alembic_config(db_path), "head")
 
     # All four revisions applied; alembic_version at head.
-    assert _alembic_version(db_path) == "0005"
+    assert _alembic_version(db_path) == "0006"
 
     # The columns added by 0002 / 0003 / 0004 are now present.
     assert "card_json_before" in _table_columns(db_path, "review_log")
@@ -150,7 +150,7 @@ def test_fresh_db_user_version_zero_runs_full_chain(tmp_path: Path) -> None:
     # Don't create anything; alembic upgrade head must build from scratch.
     alembic_upgrade(_alembic_config(db_path), "head")
 
-    assert _alembic_version(db_path) == "0005"
+    assert _alembic_version(db_path) == "0006"
     assert "card_json_before" in _table_columns(db_path, "review_log")
     assert "deleted_at" in _table_columns(db_path, "card")
     assert "suspended_at" in _table_columns(db_path, "review_state")
@@ -166,7 +166,7 @@ def test_handoff_is_idempotent(tmp_path: Path) -> None:
     alembic_upgrade(_alembic_config(db_path), "head")
     alembic_upgrade(_alembic_config(db_path), "head")
 
-    assert _alembic_version(db_path) == "0005"
+    assert _alembic_version(db_path) == "0006"
 
 
 def test_init_db_runs_alembic_to_head(tmp_path: Path) -> None:
@@ -180,7 +180,7 @@ def test_init_db_runs_alembic_to_head(tmp_path: Path) -> None:
     init_db(db_path)
 
     # After init_db, the DB must be at head and have the full schema.
-    assert _alembic_version(db_path) == "0005"
+    assert _alembic_version(db_path) == "0006"
     assert "card_json_before" in _table_columns(db_path, "review_log")
     assert "deleted_at" in _table_columns(db_path, "card")
     assert "suspended_at" in _table_columns(db_path, "review_state")
@@ -195,7 +195,7 @@ def test_init_db_handles_legacy_user_version_one(tmp_path: Path) -> None:
 
     init_db(db_path)
 
-    assert _alembic_version(db_path) == "0005"
+    assert _alembic_version(db_path) == "0006"
     assert "card_json_before" in _table_columns(db_path, "review_log")
 
 
@@ -212,4 +212,19 @@ def test_migration_0005_adds_image_columns(tmp_path: Path) -> None:
         "front_image_sha256",
         "back_image_file_id",
         "back_image_sha256",
+    }.issubset(cols)
+
+
+def test_migration_0006_adds_reminder_columns(tmp_path: Path) -> None:
+    """Revision 0006 must add the three smart-reminder columns to the
+    user table. Verified via PRAGMA table_info, no engine state reuse.
+    """
+    db_path = tmp_path / "reminder_schema.db"
+    alembic_upgrade(_alembic_config(db_path), "head")
+
+    cols = _table_columns(db_path, "user")
+    assert {
+        "reminder_enabled",
+        "reminder_threshold",
+        "last_reminder_sent_at",
     }.issubset(cols)

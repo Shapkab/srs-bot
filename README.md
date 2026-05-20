@@ -29,6 +29,10 @@ A Telegram vocabulary SRS bot using FSRS 6. Single-user v1.
   no longer parses (paired with the `cb_rate` corrupt-card guard)
 - `/addimage` — add a card whose front and/or back is a photo (with an
   optional caption); see "Image cards" below
+- `/remind` — smart reminders: `on` / `off` / `threshold N`. An hourly
+  job nudges you when the due backlog reaches the threshold, at most
+  once per 24h. Off by default; coexists with the fixed-time daily
+  reminder below.
 - Daily reminder at a configured time (with **catch-up** if the bot was
   offline at REMINDER_TIME — it fires once at next startup)
 - New-card rate-limited by `User.daily_new_limit` (default 10 per UTC day)

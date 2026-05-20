@@ -96,6 +96,17 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    # Smart reminders: an hourly job (src/jobs/smart_reminder.py) nudges
+    # the user when the due backlog crosses reminder_threshold, at most
+    # once per 24h (tracked by last_reminder_sent_at). Off by default;
+    # toggled via the /remind command. Coexists with the fixed-time
+    # daily reminder.
+    reminder_enabled: Mapped[bool] = mapped_column(default=False)
+    reminder_threshold: Mapped[int] = mapped_column(Integer, default=5)
+    last_reminder_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     cards: Mapped[list[Card]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     states: Mapped[list[ReviewState]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
