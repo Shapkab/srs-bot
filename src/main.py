@@ -20,6 +20,7 @@ from src.config import Settings, load_settings
 from src.db.engine import init_db
 from src.handlers import (
     add_card,
+    bulk_import,
     cards,
     export,
     remind,
@@ -51,6 +52,7 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
 
     dp.include_router(start.router)
     dp.include_router(add_card.router)
+    dp.include_router(bulk_import.router)
     dp.include_router(review.router)
     dp.include_router(export.router)
     dp.include_router(cards.router)
