@@ -81,8 +81,13 @@ def main() -> int:
     print()
 
     with session_scope() as session:
-        # Get or create user
-        user = get_or_create_user(session, telegram_id=args.user_id)
+        # Get or create user (CLI has no username/timezone info, use defaults)
+        user = get_or_create_user(
+            session,
+            telegram_id=args.user_id,
+            username=None,
+            tz="UTC",
+        )
         print(f"User: #{user.id} (telegram_id={user.telegram_id})")
 
         # Import cards
