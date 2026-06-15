@@ -30,7 +30,7 @@ primary_region = "iad"
 # Smallest always-on tier; sufficient for single-user polling.
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "256mb"
+  memory = "512mb"
 
 # Note: no [http_service] / [[services]] blocks. Fly's auto_stop /
 # auto_start behaviour lives inside those, so omitting them yields an
