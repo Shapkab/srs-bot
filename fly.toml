@@ -5,7 +5,7 @@
 # data layer is one file (plus its WAL/SHM siblings).
 
 app = "srs-bot-shapka"
-primary_region = "mia"
+primary_region = "iad"
 
 [build]
 
@@ -20,7 +20,7 @@ primary_region = "mia"
   LOG_LEVEL = "INFO"
 
 # Persistent SQLite home. Created once with:
-#   fly volumes create srs_data --region mia --size 1
+#   fly volumes create srs_data --region iad --size 1
 # WAL/SHM siblings + the bot's own daily snapshots in /data/backups all
 # live on this volume.
 [[mounts]]
