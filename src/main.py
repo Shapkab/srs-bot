@@ -26,6 +26,7 @@ from src.handlers import (
     remind,
     repair,
     review,
+    settings,
     start,
     stats,
     undo,
@@ -60,6 +61,7 @@ def _build_dispatcher(settings: Settings) -> Dispatcher:
     dp.include_router(stats.router)
     dp.include_router(repair.router)
     dp.include_router(remind.router)
+    dp.include_router(settings.router)
     return dp
 
 

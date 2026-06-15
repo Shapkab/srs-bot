@@ -14,10 +14,10 @@ See src/services/bulk_import.py for full format documentation.
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import logging
-import tempfile
 from pathlib import Path
 
 from aiogram import Bot, F, Router
@@ -77,6 +77,9 @@ async def cmd_import_file(
 ) -> None:
     """Process uploaded CSV file."""
     await state.clear()
+
+    if not message.from_user:
+        return
 
     doc = message.document
     if not doc:
@@ -164,7 +167,7 @@ async def cmd_import_file(
 
     # Build result message
     lines = [
-        f"<b>Import complete!</b>\n",
+        "<b>Import complete!</b>\n",
         f"Total rows: {result.total}",
         f"Imported: {result.success}",
         f"Failed: {result.failed}",
@@ -180,10 +183,8 @@ async def cmd_import_file(
             lines.append(f"... and {len(result.errors) - 10} more errors")
 
     # Delete progress message and send result
-    try:
+    with contextlib.suppress(Exception):
         await progress_msg.delete()
-    except Exception:
-        pass
 
     await message.answer("\n".join(lines))
 

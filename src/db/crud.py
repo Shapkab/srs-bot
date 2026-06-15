@@ -177,7 +177,7 @@ def persist_review(
             suspended_at=new_suspended_at,
         )
     )
-    if res.rowcount != 1:
+    if res.rowcount != 1:  # type: ignore[attr-defined]
         return False
 
     # Sync the in-memory ORM instance so callers (and tests) see the

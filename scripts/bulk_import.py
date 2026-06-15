@@ -31,8 +31,13 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Allow `python scripts/bulk_import.py` from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Load .env file from project root
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from src.db.crud import get_or_create_user  # noqa: E402
 from src.db.engine import init_db, session_scope  # noqa: E402
@@ -81,8 +86,13 @@ def main() -> int:
     print()
 
     with session_scope() as session:
-        # Get or create user
-        user = get_or_create_user(session, telegram_id=args.user_id)
+        # Get or create user (CLI has no username/timezone info, use defaults)
+        user = get_or_create_user(
+            session,
+            telegram_id=args.user_id,
+            username=None,
+            tz="UTC",
+        )
         print(f"User: #{user.id} (telegram_id={user.telegram_id})")
 
         # Import cards

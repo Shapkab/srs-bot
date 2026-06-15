@@ -30,7 +30,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from src.db.crud import add_card, get_or_create_user
+from src.db.crud import add_card
 from src.db.models import User
 from src.utils.image_store import store_bytes
 from src.utils.pronunciation import generate_pronunciation
