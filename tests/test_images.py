@@ -24,7 +24,7 @@ from scripts.reupload_images import reupload_images
 from src.config import Settings
 from src.db.crud import add_card, get_or_create_user
 from src.db.engine import session_scope
-from src.db.models import Card
+from src.db.models import Card, ReviewState
 from src.handlers.add_card import _download_and_hash, _finalize_image
 from src.utils.image_store import sha256_hex, store_bytes
 
@@ -500,6 +500,58 @@ def test_long_caption_falls_back_to_separate_back_message(tmp_path: Path) -> Non
     cb.message.answer.assert_awaited_once()
     back_text = cb.message.answer.call_args.args[0]
     assert back_text == "x" * 1100
+
+
+def test_cb_rate_puts_rated_line_above_next_image_card(tmp_path: Path) -> None:
+    """Telegram renders photo captions below the image. After a rating,
+    'Rated: …' must ride in its own text bubble; the next card photo
+    caption carries only the front (+ IPA)."""
+    from src.handlers.review import cb_rate
+
+    with session_scope() as s:
+        user = get_or_create_user(s, telegram_id=1, username="t", tz="UTC")
+        add_card(s, user, front="apple", back="fruit")
+        sha = store_bytes(tmp_path / "images", _FAKE_JPEG)
+        add_card(
+            s,
+            user,
+            front="vast",
+            back="huge",
+            front_image_file_id="NEXT_IMG",
+            front_image_sha256=sha,
+            front_pronunciation="/væst/",
+        )
+        state_id = s.scalars(
+            select(ReviewState).order_by(ReviewState.id.asc())
+        ).first().id
+
+    class _CBMessage:
+        def __init__(self) -> None:
+            self.edit_reply_markup = AsyncMock()
+            self.answer = AsyncMock()
+            self.answer_photo = AsyncMock()
+            self.photo = None
+
+    class _CB:
+        def __init__(self, data: str) -> None:
+            self.data = data
+            self.message = _CBMessage()
+            self.answer = AsyncMock()
+
+    cb = _CB(f"rv:rate:{state_id}:2")  # Rating.HARD
+    asyncio.run(cb_rate(cb, _settings(tmp_path)))  # type: ignore[arg-type]
+
+    rated_text = cb.message.answer.call_args.args[0]
+    assert "Rated:" in rated_text
+    assert "Hard" in rated_text
+    assert "vast" not in rated_text
+
+    cb.message.answer_photo.assert_awaited_once()
+    photo_kwargs = cb.message.answer_photo.call_args.kwargs
+    assert photo_kwargs["photo"] == "NEXT_IMG"
+    assert "Rated:" not in photo_kwargs["caption"]
+    assert "vast" in photo_kwargs["caption"]
+    assert "/væst/" in photo_kwargs["caption"]
 
 
 # Mirror of src.handlers.review._PHOTO_CAPTION_MAX (kept local to avoid

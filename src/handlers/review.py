@@ -41,8 +41,8 @@ log = logging.getLogger(__name__)
 router = Router(name="review")
 
 # Telegram caps photo captions at 1024 chars; leave headroom for HTML
-# tags ("<b></b>" plus the "Rated: ..." prefix used by cb_rate) and
-# fall back to a separate text bubble when full_text would exceed this.
+# tags (e.g. "<b></b>") and fall back to a separate text bubble when
+# front+back rendered in cb_show_answer would exceed this.
 _PHOTO_CAPTION_MAX = 1000
 
 
@@ -259,17 +259,19 @@ async def cb_rate(callback: CallbackQuery, settings: Settings) -> None:
         return
 
     # Image path: strip the keyboard from the just-rated message, then
-    # send the next card as a fresh message (photo or text). The "Rated"
-    # confirmation rides on the next card's caption / text so the user
-    # gets the same one-screen UX, just in a new bubble.
+    # send the next card as a fresh message. When the next card has a
+    # photo, Telegram always renders the caption below the image — so
+    # "Rated: …" goes in its own text bubble first, then the photo
+    # carries only the word (+ IPA).
     await _strip_keyboard(callback.message)
 
     if next_state_id is None:
         await callback.message.answer(f"{rated_line}\n\nNothing more due. Nice work.")
     elif next_has_image:
+        await callback.message.answer(rated_line)
         await callback.message.answer_photo(
             photo=next_front_image_file_id,
-            caption=f"{rated_line}\n\n---\n\n{next_front_text}",
+            caption=next_front_text,
             reply_markup=show_answer_kb(next_state_id),
         )
     else:
