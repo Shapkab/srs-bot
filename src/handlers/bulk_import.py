@@ -156,12 +156,14 @@ async def cmd_import_file(
             tz=settings.timezone,
         )
 
-        result = import_cards(
+        result = await import_cards(
             session=session,
             user=user,
             rows=rows,
             api_key=settings.openai_api_key,
             image_dir=settings.image_dir,
+            bot=bot,
+            owner_telegram_id=message.from_user.id,
             csv_dir=Path.cwd(),  # URLs only for Telegram import
         )
 
