@@ -28,6 +28,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from aiogram import Bot
+from aiogram.types import BufferedInputFile
 from sqlalchemy.orm import Session
 
 from src.db.crud import add_card
@@ -114,12 +116,14 @@ def _load_image(image_path: str, csv_dir: Path) -> bytes | None:
     return data
 
 
-def import_cards(
+async def import_cards(
     session: Session,
     user: User,
     rows: list[dict[str, str]],
     api_key: str,
     image_dir: Path,
+    bot: Bot | None = None,
+    owner_telegram_id: int | None = None,
     csv_dir: Path | None = None,
 ) -> ImportResult:
     """Import cards from parsed CSV rows.
@@ -130,6 +134,8 @@ def import_cards(
         rows: List of dicts with keys: front, back, image, tags
         api_key: OpenAI API key for pronunciation
         image_dir: Directory to store downloaded images
+        bot: Bot instance for uploading images to Telegram (required if images present)
+        owner_telegram_id: Telegram user ID to send image registrations to
         csv_dir: Base directory for resolving relative image paths
 
     Returns:
@@ -154,10 +160,20 @@ def import_cards(
 
         # Load and store image
         back_image_sha: str | None = None
+        back_image_file_id: str | None = None
         try:
             image_data = _load_image(image, csv_dir)
             if image_data:
                 back_image_sha = store_bytes(image_dir, image_data)
+                # Upload to Telegram to get file_id
+                if bot and owner_telegram_id:
+                    msg = await bot.send_photo(
+                        chat_id=owner_telegram_id,
+                        photo=BufferedInputFile(image_data, filename=f"{back_image_sha[:12]}.jpg"),
+                        caption=f"Import: {front[:30]}…",
+                    )
+                    if msg.photo:
+                        back_image_file_id = msg.photo[-1].file_id
         except Exception as e:
             result.add_failure(i, front, f"Image error: {e}")
             continue
@@ -179,6 +195,7 @@ def import_cards(
                 tags=tags,
                 source="bulk_import",
                 front_pronunciation=ipa,
+                back_image_file_id=back_image_file_id,
                 back_image_sha256=back_image_sha,
             )
             result.add_success()
@@ -190,12 +207,14 @@ def import_cards(
     return result
 
 
-def import_from_csv_file(
+async def import_from_csv_file(
     session: Session,
     user: User,
     csv_path: Path,
     api_key: str,
     image_dir: Path,
+    bot: Bot | None = None,
+    owner_telegram_id: int | None = None,
 ) -> ImportResult:
     """Import cards from a CSV file.
 
@@ -205,6 +224,8 @@ def import_from_csv_file(
         csv_path: Path to the CSV file
         api_key: OpenAI API key for pronunciation
         image_dir: Directory to store downloaded images
+        bot: Bot instance for uploading images to Telegram
+        owner_telegram_id: Telegram user ID to send image registrations to
 
     Returns:
         ImportResult with success/failure counts and error details
@@ -213,11 +234,13 @@ def import_from_csv_file(
         reader = csv.DictReader(f)
         rows = list(reader)
 
-    return import_cards(
+    return await import_cards(
         session=session,
         user=user,
         rows=rows,
         api_key=api_key,
         image_dir=image_dir,
+        bot=bot,
+        owner_telegram_id=owner_telegram_id,
         csv_dir=csv_path.parent,
     )
